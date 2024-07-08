@@ -17,7 +17,7 @@ doubleTime consists of the following steps:
 * SBMClone results to group cells into clones
 
 ## Outputs
-* `_annotated_tree.pickle': Clone tree with WGD events assigned to branches and SNV-derived branch lengths
+* `_annotated_tree.pickle`: Clone tree with WGD events assigned to branches and SNV-derived branch lengths
 * `_cna_clustered.h5` / `_snv_clustered.h5`: Clustered anndatas representing aggregate copy-number calls and SNV counts at the clone level
 * `_tree_snv_assignment.csv`: Table containing SNV metrics and assignments to branches of the tree
 
