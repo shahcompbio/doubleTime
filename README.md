@@ -12,12 +12,14 @@ doubleTime consists of the following steps:
 5. Correct branch lengths for variable SNV discovery in clones consisting of different numbers of cells. (not yet implemented)
 
 ## Inputs
-* Tree relating input clones (or SBMClone results to be aggregated into a clone tree)
 * Single-cell haplotype-specific copy-number calls
 * Counts for the number of SNV-covering and SNV-supporting reads in each cell for each SNV
+* SBMClone results to group cells into clones
 
 ## Outputs
-* Tree with WGD events assigned to branches and SNV-derived branch lengths
+* `_annotated_tree.pickle': Clone tree with WGD events assigned to branches and SNV-derived branch lengths
+* `_cna_clustered.h5` / `_snv_clustered.h5`: Clustered anndatas representing aggregate copy-number calls and SNV counts at the clone level
+* `_tree_snv_assignment.csv`: Table containing SNV metrics and assignments to branches of the tree
 
 # Setup
 
