@@ -1,0 +1,11 @@
+snv_adata: '/data1/shahs3/users/myersm2/repos/spectrum_wgd_data/sbmclone/sbmclone_SPECTRUM-OV-002_snv.h5'
+cna_adata: '/data1/shahs3/users/myersm2/repos/spectrum_wgd_data/preprocessing/signals/signals_SPECTRUM-OV-002.h5'
+cell_info: '/data1/shahs3/users/myersm2/repos/spectrum_wgd_data/preprocessing/summary/filtered_cell_table.csv.gz'
+
+outdir: 'output'
+patient_id: 'SPECTRUM-OV-002'
+
+tree_snv_min_clone_size: 20
+tree_snv_min_num_snvs: 20
+tree_snv_min_prop_clonal_wgd: 0.8
+genome_fasta_filename: '/data1/shahs3/users/myersm2/reference/grch37/GRCh37-lite.fa'
