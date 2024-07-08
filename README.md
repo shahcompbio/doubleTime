@@ -19,8 +19,13 @@ doubleTime consists of the following steps:
 ## Outputs
 * Tree with WGD events assigned to branches and SNV-derived branch lengths
 
-# Installation
+# Setup
 
-## Dependencies
+1. Clone this repository
+2. Install dependencies from `environment.yml`: `conda create -n doubletime --file environment.yml`
 
 # Usage
+
+```
+snakemake --snakefile doubleTime.smk --configfile config.yaml
+```
