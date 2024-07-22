@@ -149,20 +149,6 @@ def main(snv_adata, patient_id, output):
     assert max(colsums) == B.shape[0]
 
     if min(B.shape) > 1:
-        # fill in blocks that correspond to SNVs in deleted regions (006)
-        # and to fix density heterogeneity issues (others)
-        if patient_id == 'SPECTRUM-OV-006':
-            B[2][2] = 1
-        elif patient_id == 'SPECTRUM-OV-007':
-            B[3][1] = 1
-        elif patient_id == 'SPECTRUM-OV-026':
-            B[3][1] = 1
-        elif patient_id == 'SPECTRUM-OV-045':
-            B[1][5] = 0
-        elif patient_id == 'SPECTRUM-OV-046':
-            B[2][1] = 1
-            B[3][1] = 1    
-
         try:
             T = construct_pp_tree(B)
         except AssertionError as e:
