@@ -17,19 +17,30 @@ Coming soon:
 * Single-cell haplotype-specific copy-number calls
 * Counts for the number of SNV-covering and SNV-supporting reads in each cell for each SNV
 * SBMClone results to group cells into clones
+* Reference genome that was used for SNV and CNA analysis (FASTA file)
+
+See `demo/input` for examples.
 
 ## Outputs
+doubleTime produces output files with the following suffixes (prefix is the patient name):
 * `_annotated_tree.pickle`: Clone tree with WGD events assigned to branches and SNV-derived branch lengths
 * `_cna_clustered.h5` / `_snv_clustered.h5`: Clustered anndatas representing aggregate copy-number calls and SNV counts at the clone level
 * `_tree_snv_assignment.csv`: Table containing SNV metrics and assignments to branches of the tree
+
+An intermediate tree without annotations (`_tree.pickle`) is also produced and can be safely ignored or deleted.
+
+See `demo/output` for examples.
 
 # Setup
 
 1. Clone this repository
 2. Install dependencies from `environment.yml`: `conda create -n doubletime --file environment.yml`
 
+Optional: to run the demo, you will need to point `demo.yaml` to the reference genome `GRCh37-lite.fa`, which can be found here: https://www.bcgsc.ca/downloads/genomes/9606/hg19/1000genomes/bwa_ind/genome/GRCh37-lite.fa
+
 # Usage
 
 ```
-snakemake --snakefile doubleTime.smk --configfile config.yaml
+snakemake --snakefile doubleTime.smk --configfile demo.yaml
 ```
+Running doubleTree on the input data in `demo/input` should produce the output files in `demo/output`.
