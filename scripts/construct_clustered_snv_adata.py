@@ -31,26 +31,17 @@ def count_wgd(clade, n_wgd):
 @click.option('--adata_cna')
 @click.option('--adata_snv')
 @click.option('--tree_filename')
-@click.option('--cell_info_filename')
-@click.option('--patient_id')
 @click.option('--output_cn')
 @click.option('--output_snv')
 @click.option('--output_pruned_tree')
 @click.option('--min_clone_size', type=int, default=20, required=False)
 @click.option('--min_num_snvs', type=int, default=20, required=False) # TODO
 @click.option('--min_prop_clonal_wgd', type=float, default=0.8, required=False)
-def main(adata_cna, adata_snv, tree_filename, cell_info_filename, patient_id, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd):
-
-    cell_info = pd.read_csv(cell_info_filename)
-    cell_info['haploid_depth'] = cell_info['coverage_depth'] / cell_info['ploidy']
-
+def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd):
     adata = ad.read_h5ad(adata_cna)
-    adata.obs = adata.obs.merge(cell_info.set_index('cell_id')[['include_cell', 'multipolar', 'haploid_depth']], left_index=True, right_index=True, how='left')
-    assert not adata.obs['multipolar'].isnull().any()
+    adata.obs['haploid_depth'] = adata.obs['coverage_depth'] / adata.obs['ploidy']
 
     snv_adata = ad.read_h5ad(adata_snv)
-    snv_adata.obs = snv_adata.obs.merge(cell_info.set_index('cell_id')[['include_cell', 'multipolar', 'n_wgd']], left_index=True, right_index=True, how='left')
-    assert not snv_adata.obs['multipolar'].isnull().any()
 
     tree = pickle.load(open(tree_filename, 'rb'))
 
@@ -74,11 +65,8 @@ def main(adata_cna, adata_snv, tree_filename, cell_info_filename, patient_id, ou
             block2leaf[int(b)] = l.name.lstrip('clone_') # TODO: why?
     adata.obs['leaf_id'] = adata.obs.sbmclone_cluster_id.map(block2leaf)
 
-    # Filter anndata for high quality non-multipolar cells
-    # with n_wgd<=1 and n_wgd equal to the modal n_wgd
+    # Select cells with n_wgd<=1 and n_wgd equal to the modal n_wgd
     adata = adata[(
-        adata.obs.include_cell &
-        ~adata.obs.multipolar &
         (adata.obs.n_wgd.astype(int) <= 1) &
         adata.obs.n_wgd == adata.obs.n_wgd_mode)].copy()
 

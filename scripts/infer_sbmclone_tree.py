@@ -32,6 +32,12 @@ def construct_pp_tree(B):
     if np.min(M.shape) <= 1:
         return construct_dummy_tree(*M.shape)
 
+    if np.max(np.sum(M, axis = 0)) < M.shape[0]:
+        # If there is no clonal block to annotate the root, add a dummy root
+        M = np.concatenate([np.ones((M.shape[0], 1)), M], axis = 1)    
+        col2labels = defaultdict(lambda:list(), {k+1:v for k,v in col2labels.items()})
+        col2labels[0] = ['null']
+
     pointers = [0]
     for j in range(1, M.shape[1]):
         prevs = []
@@ -62,8 +68,12 @@ def construct_pp_tree(B):
             clades[v].mutations = "SNV_block_" + '/'.join([str(a) for a in col2labels[v]])
         adjacency_list[u].append(v)
 
+    print(adjacency_list.items())
+
     for u,vs in adjacency_list.items():
         clades[u].clades = [clades[v] for v in vs]
+
+    print(clades)
 
     T = Bio.Phylo.BaseTree.Tree(clades[0])
     T.clade.mutations = ''
@@ -135,18 +145,17 @@ def construct_dummy_tree(n_clones, n_snv_blocks):
 @click.option('--snv_adata')
 @click.option('--patient_id')
 @click.option('--output')
-def main(snv_adata, patient_id, output):
+@click.option('--binarization_threshold', default=0.01)
+def main(snv_adata, patient_id, output, binarization_threshold):
     snv_adata = ad.read_h5ad(snv_adata)
 
-    Dens0, B0 = get_binary(snv_adata)
+    Dens0, B0 = get_binary(snv_adata, binarization_threshold=binarization_threshold)
     colsums = np.sum(B0, axis = 0)
     empty_cols = np.where(colsums == 0)[0]
     non_empty_mask = np.ones(B0.shape[1], dtype=bool)
     non_empty_mask[empty_cols]=False
     B = B0[:, non_empty_mask]
     Dens = Dens0[:, non_empty_mask].copy()
-
-    assert max(colsums) == B.shape[0]
 
     if min(B.shape) > 1:
         try:
