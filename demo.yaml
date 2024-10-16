@@ -8,4 +8,5 @@ patient_id: 'SPECTRUM-OV-002'
 tree_snv_min_clone_size: 20
 tree_snv_min_num_snvs: 20
 tree_snv_min_prop_clonal_wgd: 0.8
+binarization_threshold: 0.01
 genome_fasta_filename: '/data1/shahs3/users/myersm2/reference/grch37/GRCh37-lite.fa'

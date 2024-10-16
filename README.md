@@ -40,7 +40,8 @@ Optional: to run the demo, you will need to point `demo.yaml` to the reference g
 
 # Usage
 
+With the doubletime conda environment activated, we can execute the snakemake pipeline with the following command.
 ```
 snakemake --snakefile doubleTime.smk --configfile demo.yaml --cores 1
 ```
-Running doubleTree on the input data in `demo/input` should produce the output files in `demo/output`.
+Here, we specify the configuration file (`demo.yaml`), which contains the input data and parameters for the pipeline. We also specify the number of cores to use (1 in this case). Running doubleTree on the input data in `demo/input` should produce the output files in `demo/output`.
