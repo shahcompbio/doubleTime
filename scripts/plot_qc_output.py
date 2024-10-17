@@ -1,4 +1,3 @@
-import os
 import itertools
 import pickle
 import seaborn as sns
@@ -8,13 +7,11 @@ import anndata as ad
 import Bio.Phylo
 import numpy as np
 from copy import deepcopy
-import wgs_analysis.snvs.mutsig
 import sys
 import click
 import logging
 import itertools
 import matplotlib.patches as patches
-import random
 
 n_wgd_colors = ['#CCCCCC', '#FC8D59', '#B30000']
 
@@ -35,6 +32,7 @@ def plot_snv_reads_hist(adata, output_filename, min_total_counts_perblock=2):
     # filter the SNVs according to the minimum total count
     adata = adata[:, adata.var['min_total_count'] >= min_total_counts_perblock]
     return adata
+
 
 def plot_clone_hist(data, output_filename):
     # total counts across clones
@@ -160,12 +158,14 @@ def draw_branch_wgd(ax, clade, bar_height=0.25):
             linewidth=0, edgecolor='none', facecolor=n_wgd_colors[clade.n_wgd])
         ax.add_patch(rect)
 
+
 def draw_branch_links(ax, clade, bar_height=0.25):
     if not clade.is_terminal():
         child_pos = [child.branch_pos for child in clade.clades]
         plt.plot(
             [clade.branch_start + clade.branch_length, clade.branch_start + clade.branch_length],
             [min(child_pos)-bar_height/2., max(child_pos)+bar_height/2.], color='k', ls=':')
+
 
 def draw_leaf_tri_size(ax, clade, bar_height=0.25, max_height=2.):
     if clade.is_terminal():
@@ -217,87 +217,6 @@ def plot_wgd_tree(tree, patient_id, snv_types, output_filename):
     fig.savefig(output_filename, bbox_inches='tight')
 
 
-def is_apobec_snv(ref_base, alt_base, trinucleotide_context):
-    """
-    Classify a SNV as APOBEC-induced based on its substitution type and trinucleotide context.
-    This function also accounts for the reverse complement context.
-
-    Parameters:
-    - ref_base: The reference base (e.g., 'C').
-    - alt_base: The alternate base (e.g., 'T').
-    - trinucleotide_context: The trinucleotide context (e.g., 'TCA').
-
-    Returns:
-    - True if the SNV is APOBEC-induced, False otherwise.
-    """
-
-    # Check if the substitution is a C-to-T or G-to-A transition
-    is_c_to_t = ref_base.upper() == 'C' and alt_base.upper() == 'T'
-    is_g_to_a = ref_base.upper() == 'G' and alt_base.upper() == 'A'
-
-    # Check if the substitution is a C-to-G or G-to-C transition
-    is_c_to_g = ref_base.upper() == 'C' and alt_base.upper() == 'G'
-    is_g_to_c = ref_base.upper() == 'G' and alt_base.upper() == 'C'
-
-    # Check if the trinucleotide context fits the TpCpX pattern on the forward strand
-    is_tpctx_forward = trinucleotide_context[1].upper() == 'C' and trinucleotide_context[0].upper() == 'T'
-
-    # Check if the trinucleotide context fits the RpGpX pattern on the reverse strand (where R is A or G)
-    is_tpctx_reverse = trinucleotide_context[1].upper() == 'G' and trinucleotide_context[2].upper() == 'A'
-
-    # APOBEC-induced mutations are C-to-T or C-to-G in TpCpX context or reverse complement
-    return ((is_c_to_t or is_c_to_g) and is_tpctx_forward) or ((is_g_to_a or is_g_to_c) and is_tpctx_reverse)
-
-
-def is_c_to_t_in_cpg_context(ref_base, alt_base, trinucleotide_context):
-    """
-    This function checks if a single nucleotide variant (SNV) is a C to T mutation
-    in a CpG context or its reverse complement G to A in a CpG context.
-    
-    Parameters:
-    ref_base (str): The reference nucleotide
-    alt_base (str): The alternate nucleotide
-    trinucleotide_context (str): The trinucleotide context of the SNV (string of 3 nucleotides)
-    
-    Returns:
-    bool: True if the mutation is a C to T mutation in a CpG context or a G to A mutation
-          in a CpG context on the reverse strand, False otherwise.
-    """
-    
-    # Check if the mutation is C to T in a CpG context on the forward strand
-    if ref_base == 'C' and alt_base == 'T':
-        if len(trinucleotide_context) == 3 and trinucleotide_context[1] == 'C' and trinucleotide_context[2] == 'G':
-            return True
-
-    # Check if the mutation is G to A in a CpG context on the reverse strand
-    if ref_base == 'G' and alt_base == 'A':
-        if len(trinucleotide_context) == 3 and trinucleotide_context[0] == 'C' and trinucleotide_context[1] == 'G':
-            return True
-    
-    return False
-
-
-def draw_branch_wgd_fraction(ax, clade, bar_height=0.25):
-    bars = []
-    if clade.is_wgd:
-        start = clade.branch_start
-        length = clade.branch_length * clade.wgd_fraction
-        bars.append({'start': start, 'length': length, 'color': n_wgd_colors[clade.n_wgd-1]})
-
-        start += length
-        length = clade.branch_length * (1. - clade.wgd_fraction)
-        bars.append({'start': start, 'length': length, 'color': n_wgd_colors[clade.n_wgd]})
-
-    else:
-        bars.append({'start': clade.branch_start, 'length': clade.branch_length, 'color': n_wgd_colors[clade.n_wgd]})
-
-    for bar in bars:
-        rect = patches.Rectangle(
-            (bar['start'], clade.branch_pos-bar_height/2.), bar['length'], bar_height, 
-            linewidth=0, edgecolor='none', facecolor=bar['color'])
-        ax.add_patch(rect)
-
-
 def draw_branch_wgd_event(ax, clade, bar_height=0.25):
     if clade.is_wgd:
         length1 = clade.branch_length * clade.wgd_fraction
@@ -339,35 +258,7 @@ def draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction, bar_height=0.25)
         ax.add_patch(rect)
 
 
-def draw_apobec_fraction(ax, clade, bar_height=0.25):
-    if clade.is_wgd:        
-        length1 = clade.branch_length * clade.wgd_fraction
-        length2 = clade.branch_length * (1. - clade.wgd_fraction)
-        rect1 = patches.Rectangle((clade.branch_start, clade.branch_pos-bar_height/2.), length1, bar_height, 
-                                  linewidth=0, edgecolor='none', facecolor=n_wgd_colors[clade.n_wgd-1])
-        ax.add_patch(rect1)
-        rect2 = patches.Rectangle((clade.branch_start + length1, clade.branch_pos-bar_height/2.), length2, bar_height, 
-                                  linewidth=0, edgecolor='none', facecolor=n_wgd_colors[clade.n_wgd])
-        ax.add_patch(rect2)
-        ax.scatter([clade.branch_start + length1], [clade.branch_pos+bar_height], marker='v', color='darkorange')
-
-    else:
-        rect = patches.Rectangle(
-            (clade.branch_start, clade.branch_pos-bar_height/2.), clade.branch_length, bar_height, 
-            linewidth=0, edgecolor='none', facecolor=n_wgd_colors[clade.n_wgd])
-        ax.add_patch(rect)
-
-    length1 = clade.branch_length * clade.apobec_fraction
-    length2 = clade.branch_length * (1. - clade.apobec_fraction)
-    rect1 = patches.Rectangle((clade.branch_start, clade.branch_pos-bar_height/2.), length1, bar_height, 
-                              linewidth=0, edgecolor='none', facecolor='r')
-    ax.add_patch(rect1)
-    rect2 = patches.Rectangle((clade.branch_start + length1, clade.branch_pos-bar_height/2.), length2, bar_height, 
-                              linewidth=0, edgecolor='none', facecolor='0.75')
-    ax.add_patch(rect2)
-
-
-def plot_apobec_figure(tree, apobec_fraction, patient_id, output_filename):
+def plot_apobec_tree(tree, apobec_fraction, patient_id, output_filename):
     fig, ax = plt.subplots(figsize=(5, 1), dpi=150)
 
     for clade in tree.find_clades():
@@ -390,7 +281,7 @@ def plot_apobec_figure(tree, apobec_fraction, patient_id, output_filename):
     fig.savefig(output_filename, bbox_inches='tight')
 
 
-def plot_cpg_figure(tree, cpg_tree, patient_id, snv_types, output_filename):
+def plot_cpg_tree(tree, cpg_tree, patient_id, snv_types, output_filename):
     fig, ax = plt.subplots(figsize=(5, 1), dpi=150)
 
     for clade in cpg_tree.find_clades():
@@ -484,18 +375,18 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     # count the number of WGD events in each clade
     count_wgd(tree.clade, 0)
 
-    assign_plot_locations(tree)
 
     # plot the tree with total SNV counts as branch lengths
     # WGD timing on branches is annotated by color
     snv_types = sorted(data.ascn.unique())
+    assign_plot_locations(tree)
     plot_wgd_tree(tree, patient_id, snv_types, wgd_tree_filename)
     
     # compute the fraction of ABOPEC SNVs in each clade
     apobec_fraction = data[['snv', 'clade', 'wgd_timing', 'is_apobec']].drop_duplicates().groupby(['clade', 'wgd_timing'])['is_apobec'].mean()
     
     # plot the tree with branch lengths annotated by APOBEC fraction
-    plot_apobec_figure(tree, apobec_fraction, patient_id, apobec_tree_filename)
+    plot_apobec_tree(tree, apobec_fraction, patient_id, apobec_tree_filename)
 
     # restrict to CpG SNVs
     cpg_tree = deepcopy(tree)
@@ -513,12 +404,12 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
 
     # draw a Bio.Phylo tree using the CpG SNV counts as branch lengths
     Bio.Phylo.draw(cpg_tree)
-    assign_plot_locations(cpg_tree)
     plt.savefig(bio_phylo_cpg_tree_filename, bbox_inches='tight')
 
     # plot the tree using CpG SNVs
     # WGD timing on branches are annotated by color
-    plot_cpg_figure(tree, cpg_tree, patient_id, snv_types, cpg_tree_filename)
+    assign_plot_locations(cpg_tree)
+    plot_cpg_tree(tree, cpg_tree, patient_id, snv_types, cpg_tree_filename)
 
 
 if __name__ == "__main__":

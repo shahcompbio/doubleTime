@@ -8,6 +8,7 @@ cna_adata = config['cna_adata']
 
 # output directory
 outdir = config["outdir"]
+outplotdir = os.path.join(outdir, "plots")
 patient_id = config["patient_id"]
 
 # parameters
@@ -27,10 +28,13 @@ scripts_dir = os.path.join(repo_dir, 'scripts')
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 
+if not os.path.exists(outplotdir):
+    os.makedirs(outplotdir)
+
 rule all:
     input: 
         os.path.join(outdir, f"{patient_id}_tree_snv_assignment.csv"),
-        os.path.join(outdir, f"{patient_id}_CpG_tree.pdf")
+        os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
 
 
 rule infer_sbmclone_tree:
@@ -91,15 +95,15 @@ rule qc_output_plots:
     params:
         patient_id=patient_id
     output:
-        snv_reads_hist = os.path.join(outdir, f"{patient_id}_snv_reads_hist.pdf"),
-        clone_hist = os.path.join(outdir, f"{patient_id}_clone_hist.pdf"),
-        clone_pairwise_vaf = os.path.join(outdir, f"{patient_id}_clone_pairwise_vaf.pdf"),
-        snv_multiplicity = os.path.join(outdir, f"{patient_id}_snv_multiplicity.pdf"),
-        bio_phylo_tree = os.path.join(outdir, f"{patient_id}_bio_phylo_tree.pdf"),
-        wgd_tree = os.path.join(outdir, f"{patient_id}_wgd_tree.pdf"),
-        apobec_tree = os.path.join(outdir, f"{patient_id}_apobec_tree.pdf"),
-        bio_phylo_cpg_tree = os.path.join(outdir, f"{patient_id}_bio_phylo_CpG_tree.pdf"),
-        cpg_tree = os.path.join(outdir, f"{patient_id}_CpG_tree.pdf")
+        snv_reads_hist = os.path.join(outplotdir, f"{patient_id}_snv_reads_hist.pdf"),
+        clone_hist = os.path.join(outplotdir, f"{patient_id}_clone_hist.pdf"),
+        clone_pairwise_vaf = os.path.join(outplotdir, f"{patient_id}_clone_pairwise_vaf.pdf"),
+        snv_multiplicity = os.path.join(outplotdir, f"{patient_id}_snv_multiplicity.pdf"),
+        bio_phylo_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_tree.pdf"),
+        wgd_tree = os.path.join(outplotdir, f"{patient_id}_wgd_tree.pdf"),
+        apobec_tree = os.path.join(outplotdir, f"{patient_id}_apobec_tree.pdf"),
+        bio_phylo_cpg_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_CpG_tree.pdf"),
+        cpg_tree = os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
     shell:
         """
         python {scripts_dir}/plot_qc_output.py \
