@@ -275,17 +275,7 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
     clones = []
     for leaf in tree.get_terminals():
         clones.append(leaf.name.replace('clone_', ''))
-
     adata = adata[clones].copy()
-
-    leaf_wgd = [c.n_wgd > 0 for c in tree.get_terminals()]
-    # assert all(leaf_wgd) or not any(leaf_wgd), ("Some but not all leaves are WGD", leaf_wgd)
-    snv_types =  ['1:0', '1:1', '2:0', '2:1', '2:2']
-    # if not cnloh_only:
-    #     if all(leaf_wgd):
-    #         snv_types =  ['2:0', '2:1', '2:2']
-    #     else:
-    #         snv_types = ['1:0', '1:1']
 
     # Fixed order for clone names
     clone_names = [f'clone_{a}' for a in adata.obs.index]
@@ -345,9 +335,6 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
 
     svi = SVI(model, guide, optim, loss=elbo)
 
-    ## TODO: instead of list of tensors, use a single tensor with a new dimension for SNV type
-    ## then use poutine.block to make sure that I'm using the correct number of SNVs per SNV type
-    ## in this version of the model, n_snvs will need to be required argument instead of inferred from the data (as it is now)
     losses = []
     for i in range(200):
         loss = svi.step(
@@ -384,6 +371,7 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
         total_cns=total_cns, total_counts=total_counts, alt_counts=alt_counts, cn_states=cn_states, snv_types=snv_types
     )
 
+    # Format the learned state assignments to an output dataframe
     data = []
     for i, ascn in enumerate(snv_types):
         if len(total_counts[i]) == 0:
