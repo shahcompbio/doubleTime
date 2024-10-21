@@ -6,30 +6,34 @@ configfile: "config.yaml"
 snv_adata = config['snv_adata']
 cna_adata = config['cna_adata']
 
+# scripts directory
+repo_dir = config['repo_dir']
+scripts_dir = os.path.join(repo_dir, 'scripts')
+
 # output directory
 outdir = config["outdir"]
 outplotdir = os.path.join(outdir, "plots")
 patient_id = config["patient_id"]
 
-# parameters
+# parameters for doubleTime algorithm
 tree_snv_min_clone_size = config['tree_snv_min_clone_size']
 tree_snv_min_num_snvs = config['tree_snv_min_num_snvs']
 tree_snv_min_prop_clonal_wgd = config['tree_snv_min_prop_clonal_wgd']
 genome_fasta_filename = config['genome_fasta_filename']
 
+# parameters for binarization in SBMclone tree inference
 if 'binarization_threshold' in config:
     binarization_threshold = config['binarization_threshold']
 else:
     binarization_threshold = 0.01
 
-repo_dir = '/data1/shahs3/users/weinera2/doubleTime'
-scripts_dir = os.path.join(repo_dir, 'scripts')
-
+# create output directories if they don't already exist
 if not os.path.exists(outdir):
     os.makedirs(outdir)
 
 if not os.path.exists(outplotdir):
     os.makedirs(outplotdir)
+
 
 rule all:
     input: 

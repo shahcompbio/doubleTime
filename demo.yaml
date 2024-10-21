@@ -1,12 +1,19 @@
+# input files needed for running doubleTime.smk
 snv_adata: 'demo/input/SPECTRUM-OV-002_demo_snv.h5'
 cna_adata: 'demo/input/SPECTRUM-OV-002_demo_cna.h5'
-cell_info: 'demo/input/SPECTRUM-OV-002_cell_info_demo.csv.gz'
+genome_fasta_filename: '/data1/shahs3/users/myersm2/reference/grch37/GRCh37-lite.fa'
 
+# repo_dir needs to reflect location of where the doubleTime repository is cloned
+repo_dir: '/data1/shahs3/users/weinera2/doubleTime'
+
+# output directory and patient ID
 outdir: 'demo/output'
 patient_id: 'SPECTRUM-OV-002'
 
+# parameters for the doubleTime algorithm
 tree_snv_min_clone_size: 20
 tree_snv_min_num_snvs: 20
 tree_snv_min_prop_clonal_wgd: 0.8
+
+# parameters for running SBMclone
 binarization_threshold: 0.01
-genome_fasta_filename: '/data1/shahs3/users/myersm2/reference/grch37/GRCh37-lite.fa'

@@ -6,11 +6,9 @@ import logging
 import sys
 import pickle
 import scgenome
-import scipy
 
 
 def add_wgd_tree(T, adata_cn_clusters):
-    # TODO: use results from indep WGD test
     for clade in T.find_clades():
         clade.is_wgd = False
 
