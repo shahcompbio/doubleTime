@@ -50,11 +50,14 @@ rule infer_sbmclone_tree:
     resources:
         mem_mb=64000
     output:
-        os.path.join(outdir, f"{patient_id}_tree.pickle"),
+        os.path.join(outdir, f"{patient_id}_tree.pickle")
+    log:
+        os.path.join(outdir, f"{patient_id}infer_sbmclone_tree.log")
     shell:
         """
         python scripts/infer_sbmclone_tree.py --snv_adata {input.snv_adata} --patient_id {params.patient_id} --output {output} \
-            --binarization_threshold {binarization_threshold}
+            --binarization_threshold {binarization_threshold} \
+            &> {log}
         """
 
 rule construct_clustered_snv_adata:
@@ -70,12 +73,15 @@ rule construct_clustered_snv_adata:
         clustered_snv_adata=os.path.join(outdir, f"{patient_id}_snv_clustered.h5"),
         clustered_cna_adata=os.path.join(outdir, f"{patient_id}_cna_clustered.h5"),
         pruned_tree=os.path.join(outdir, f"{patient_id}_annotated_tree.pickle"),
+    log:
+        os.path.join(outdir, f"{patient_id}_construct_clustered_snv_adata.log")
     shell:
         """
         python {scripts_dir}/construct_clustered_snv_adata.py \
             --adata_cna {input.cna_adata}  --adata_snv {input.snv_adata} --tree_filename {input.tree} \
             --min_clone_size {tree_snv_min_clone_size} --min_num_snvs {tree_snv_min_num_snvs} --min_prop_clonal_wgd {tree_snv_min_prop_clonal_wgd} \
-            --output_cn {output.clustered_cna_adata} --output_snv {output.clustered_snv_adata} --output_pruned_tree {output.pruned_tree}
+            --output_cn {output.clustered_cna_adata} --output_snv {output.clustered_snv_adata} --output_pruned_tree {output.pruned_tree} \
+            &> {log}
         """
 
 rule assign_snvs_to_tree:
@@ -86,9 +92,13 @@ rule assign_snvs_to_tree:
         patient_id=patient_id,
     output:
         table=os.path.join(outdir, f"{patient_id}_tree_snv_assignment.csv")
+    log:
+        os.path.join(outdir, f"{patient_id}_assign_snvs_to_tree.log")
     shell:
         """
-        python {scripts_dir}/assign_snvs_to_tree.py --adata {input.adata} --tree {input.tree} --ref_genome {genome_fasta_filename} --output {output.table}
+        python {scripts_dir}/assign_snvs_to_tree.py --adata {input.adata} --tree {input.tree} --ref_genome {genome_fasta_filename} \
+            --output {output.table} \
+            &> {log}
         """
 
 rule qc_output_plots:
@@ -108,11 +118,14 @@ rule qc_output_plots:
         apobec_tree = os.path.join(outplotdir, f"{patient_id}_apobec_tree.pdf"),
         bio_phylo_cpg_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_CpG_tree.pdf"),
         cpg_tree = os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
+    log:
+        os.path.join(outdir, f"{patient_id}_qc_output_plots.log")
     shell:
         """
         python {scripts_dir}/plot_qc_output.py \
         --adata_filename {input.adata} --tree_filename {input.tree} --table_filename {input.table} --patient_id {params.patient_id} \
         -srh {output.snv_reads_hist} -ch {output.clone_hist} -cpv {output.clone_pairwise_vaf} \
         -sm {output.snv_multiplicity} -bpt {output.bio_phylo_tree} -wt {output.wgd_tree} \
-        -at {output.apobec_tree} -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree}
+        -at {output.apobec_tree} -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} \
+        &> {log}
         """

@@ -113,7 +113,8 @@ def build_cn_states_df(tree, cnA, cnB):
         The copy number of the B allele.
     '''
 
-    def calculate_snv_multiplicity(cn, leaf_n_wgd, wgd_timing):
+    def calculate_snv_multiplicity(cn, leaf_n_wgd, cladename):
+        wgd_timing = 'post' if cladename.startswith('post') else 'pre'
         if cn == 0:
             return 0
         elif wgd_timing == 'pre' and leaf_n_wgd == 1:
@@ -122,55 +123,27 @@ def build_cn_states_df(tree, cnA, cnB):
             return 1
 
     cn_states_df = []
-    cn_state_idx = 0
     for clade in tree.find_clades():
         assert clade.n_wgd <= 1
-        if clade.n_wgd == 1:
-            for leaf in clade.get_terminals():
-                assert leaf.n_wgd == 1
-                cn_states_df.append({
-                    'cn_state_idx': cn_state_idx,
-                    'clade': clade.name,
-                    'wgd_timing': 'prewgd',
-                    'leaf': leaf.name,
-                    'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, 'pre'),
-                    'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, 'pre')})
-            cn_state_idx += 1
-            for leaf in clade.get_terminals():
-                assert leaf.n_wgd == 1
-                cn_states_df.append({
-                    'cn_state_idx': cn_state_idx,
-                    'clade': clade.name,
-                    'wgd_timing': 'postwgd',
-                    'leaf': leaf.name,
-                    'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, 'post'),
-                    'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, 'post')})
-            cn_state_idx += 1
-        else:
-            for leaf in clade.get_terminals():
-                cn_states_df.append({
-                    'cn_state_idx': cn_state_idx,
-                    'clade': clade.name,
-                    'wgd_timing': 'none',
-                    'leaf': leaf.name,
-                    'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, 'pre'),
-                    'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, 'pre')})
-            cn_state_idx += 1
+        for leaf in clade.get_terminals():
+            cn_states_df.append({
+                'clade': clade.name,
+                'leaf': leaf.name,
+                'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, clade.name),
+                'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, clade.name)})
 
-    # Add zero state
+    # Add zero state to account for the case where the SNV is assigned outside the tree
     for leaf in tree.get_terminals():
         cn_states_df.append({
-            'cn_state_idx': cn_state_idx,
             'clade': 'none',
-            'wgd_timing': 'none',
             'leaf': leaf.name,
             'cn_a': 0,
             'cn_b': 0})
-    zero_state_idx = cn_state_idx
-    cn_states_dfa = pd.DataFrame(cn_states_df).set_index(['cn_state_idx', 'clade', 'wgd_timing', 'leaf'])['cn_a'].unstack(fill_value=0)
-    cn_states_dfb = pd.DataFrame(cn_states_df).set_index(['cn_state_idx', 'clade', 'wgd_timing', 'leaf'])['cn_b'].unstack(fill_value=0)
+        
+    cn_states_dfa = pd.DataFrame(cn_states_df).set_index(['clade', 'leaf'])['cn_a'].unstack(fill_value=0)
+    cn_states_dfb = pd.DataFrame(cn_states_df).set_index(['clade', 'leaf'])['cn_b'].unstack(fill_value=0)
 
-    return cn_states_dfa, cn_states_dfb, zero_state_idx
+    return cn_states_dfa, cn_states_dfb
 
 
 def is_apobec_snv(ref_base, alt_base, trinucleotide_context):
@@ -234,7 +207,7 @@ def is_c_to_t_in_cpg_context(ref_base, alt_base, trinucleotide_context):
 
 def write_empty(output):
     df = pd.DataFrame(columns=[
-        'snv', 'leaf', 'alt_counts', 'total_counts', 'cn_state_a', 'cn_state_b', 'cn_state_idx', 'clade', 'wgd_timing', 
+        'snv', 'leaf', 'alt_counts', 'total_counts', 'cn_state_a', 'cn_state_b', 'clade',
         'vaf', 'snv_id', 'ascn', 'chromosome', 'position', 'ref', 'alt', 'chrom', 'coord', 'tri_nucleotide_context', 
         'is_apobec', 'is_cpg'])
     df.to_csv(output, index=False)
@@ -274,11 +247,13 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
     # restrict anndata to clones represented in the tree
     clones = []
     for leaf in tree.get_terminals():
-        clones.append(leaf.name.replace('clone_', ''))
+        clones.append(leaf.name.replace('clone_', '').replace('postwgd_', ''))
     adata = adata[clones].copy()
 
     # Fixed order for clone names
-    clone_names = [f'clone_{a}' for a in adata.obs.index]
+    clade_names = [clade.name for clade in tree.find_clades()]
+    # set clone name to postwgd_clone_{a} if we had to split a terminal branch into two due to a WGD event, otherwise set it to clone_{a}
+    clone_names = [f'postwgd_clone_{a}' if f'postwgd_clone_{a}' in clade_names else f'clone_{a}' for a in adata.obs.index]
 
     # Fixed order for Leaf ids
     leaf_ids = adata.obs.index
@@ -292,7 +267,7 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
     for ascn in snv_types:
         cnA = int(ascn.split(':')[0])
         cnB = int(ascn.split(':')[1])
-        temp_cn_states_df_a, temp_cn_states_df_b, zero_state_idx = build_cn_states_df(tree, cnA, cnB)
+        temp_cn_states_df_a, temp_cn_states_df_b = build_cn_states_df(tree, cnA, cnB)
 
         # Ensure correct ordering
         temp_cn_states_df_a = temp_cn_states_df_a[clone_names]
@@ -311,6 +286,7 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
 
     # stack the list of tensors (one for each SNV type) into a single tensor
     cn_states = torch.stack(cn_states_list, dim=0)
+
 
     # Ensure there is at least one snv
     n_snvs = sum(a.shape[0] for a in total_counts_list)
@@ -359,8 +335,6 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
         'learned_state_probs': learned_state_probs,
     }, index=temp_cn_states_df_a.index).reset_index()
 
-    learned_state_probs_df.set_index(['clade', 'wgd_timing'])['learned_state_probs'].plot.bar()
-
     # Get MAP estimate of node assignments
     guide_trace = poutine.trace(guide).get_trace(
         total_cns=total_cns, total_counts=total_counts, alt_counts=alt_counts, cn_states=cn_states, snv_types=snv_types
@@ -386,9 +360,9 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
         temp_data = temp_data.merge(pd.DataFrame(total_counts[i].detach().numpy(), columns=clone_names).melt(ignore_index=False, var_name='leaf', value_name='total_counts').rename_axis('snv').reset_index())
         temp_data = temp_data.merge(pd.DataFrame(cn_states[i, temp_learned_state_idx, :, 0].detach().numpy(), columns=clone_names).melt(ignore_index=False, var_name='leaf', value_name='cn_state_a').rename_axis('snv').reset_index())
         temp_data = temp_data.merge(pd.DataFrame(cn_states[i, temp_learned_state_idx, :, 1].detach().numpy(), columns=clone_names).melt(ignore_index=False, var_name='leaf', value_name='cn_state_b').rename_axis('snv').reset_index())
-        temp_data = temp_data.merge(pd.DataFrame({'cn_state_idx': temp_cn_states_df_a.index.get_level_values('cn_state_idx')[temp_learned_state_idx]}).rename_axis('snv').reset_index())
+        # temp_data = temp_data.merge(pd.DataFrame({'cn_state_idx': temp_cn_states_df_a.index.get_level_values('cn_state_idx')[temp_learned_state_idx]}).rename_axis('snv').reset_index())
         temp_data = temp_data.merge(pd.DataFrame({'clade': temp_cn_states_df_a.index.get_level_values('clade')[temp_learned_state_idx]}).rename_axis('snv').reset_index())
-        temp_data = temp_data.merge(pd.DataFrame({'wgd_timing': temp_cn_states_df_a.index.get_level_values('wgd_timing')[temp_learned_state_idx]}).rename_axis('snv').reset_index())
+        # temp_data = temp_data.merge(pd.DataFrame({'wgd_timing': temp_cn_states_df_a.index.get_level_values('wgd_timing')[temp_learned_state_idx]}).rename_axis('snv').reset_index())
         temp_data['cn_state_a'] = temp_data['cn_state_a'].astype(int).astype('category')
         temp_data['cn_state_b'] = temp_data['cn_state_b'].astype(int).astype('category')
         temp_data['vaf'] = temp_data['alt_counts'] / temp_data['total_counts']
@@ -410,8 +384,8 @@ def main(adata, tree, output, ref_genome, min_total_counts_perblock, cnloh_only)
 
     assert len(data) == len(parts)
 
-    snv_counts = data[['snv', 'clade', 'wgd_timing']].drop_duplicates().groupby(['clade', 'wgd_timing']).size()
-    snv_counts = snv_counts.reindex(index=learned_state_probs_df.set_index(['clade', 'wgd_timing']).index, fill_value=0)
+    snv_counts = data[['snv', 'clade']].drop_duplicates().groupby(['clade']).size()
+    snv_counts = snv_counts.reindex(index=learned_state_probs_df.set_index(['clade']).index, fill_value=0)
 
     # look at APOBEC on the tree
     data['ref'] = data.snv_id.str.split(':', expand=True).iloc[:, 2].str.split('>', expand=True).iloc[:, 0]

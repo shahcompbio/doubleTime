@@ -25,6 +25,32 @@ def count_wgd(clade, n_wgd):
         count_wgd(child, clade.n_wgd)
 
 
+def split_wgd_branches(tree):
+    '''
+    Input: tree with n_wgd assigned to each clade
+    ---
+    Description: This function splits branches with n_wgd == 1 into two branches. 
+        The branch length of the original branch is halved and the new branch inherits all of the original branch's children. 
+        The new branch is assigned a name of 'postwgd_' + original_branch_name. 
+        After running this function, the n_wgd and is_wgd attributes are set to 0 and False for all clades in the tree.
+    '''
+    for clade in tree.find_clades():
+        assert clade.n_wgd <= 1
+        if clade.n_wgd == 1:
+            # split the branch into two branches
+            new_clade = tree.clade.__class__(branch_length=clade.branch_length / 2, name='postwgd_'+clade.name)
+            # add the new_clade to the tree to be a child of clade and inherit all of clade's children
+            new_clade.clades = clade.clades
+            clade.clades = [new_clade]
+            # modify the branch length of the original clade
+            clade.branch_length = clade.branch_length / 2
+            # set the n_wgd and is_wgd attributes to 0 and False, respectively as these branches no longer need to be split
+            new_clade.n_wgd = 0
+            clade.n_wgd = 0
+            new_clade.is_wgd = False
+            clade.is_wgd = False
+
+
 @click.command()
 @click.option('--adata_cna')
 @click.option('--adata_snv')
@@ -156,6 +182,9 @@ def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_prun
 
     # Recursively add n_wgd to each clade
     count_wgd(tree.clade, 0)
+
+    # split branches with a WGD event into two branches
+    split_wgd_branches(tree)
 
     # Wrangle SNV anndata, filter based on cn adatas and merge bin information
     #

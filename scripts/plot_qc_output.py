@@ -48,14 +48,14 @@ def plot_clone_pairwise_vaf(data, output_filename1):
     g = sns.pairplot(data=plot_data, hue='clade')
     g.savefig(output_filename1, bbox_inches='tight')
 
-    # Pairwise VAF by cn state index for clone pairs
-    # CN state index represents the clade/branch an SNV was assigned to 
-    # along with whether the SNV is before or after any WGD on that branch
-    plot_data = data.set_index(['snv', 'cn_state_idx', 'leaf'])['vaf'].unstack().reset_index(level=1)
-    plot_data['cn_state_idx'] = plot_data['cn_state_idx'].astype('category')
-    g = sns.pairplot(data=plot_data, hue='cn_state_idx')
-    output_filename2 = output_filename1.replace('.pdf', '_cn_state_idx.pdf')
-    g.savefig(output_filename2, bbox_inches='tight')
+    # # Pairwise VAF by cn state index for clone pairs
+    # # CN state index represents the clade/branch an SNV was assigned to 
+    # # along with whether the SNV is before or after any WGD on that branch
+    # plot_data = data.set_index(['snv', 'cn_state_idx', 'leaf'])['vaf'].unstack().reset_index(level=1)
+    # plot_data['cn_state_idx'] = plot_data['cn_state_idx'].astype('category')
+    # g = sns.pairplot(data=plot_data, hue='cn_state_idx')
+    # output_filename2 = output_filename1.replace('.pdf', '_cn_state_idx.pdf')
+    # g.savefig(output_filename2, bbox_inches='tight')
 
 
 def plot_snv_multiplicity(data, output_filename1):
@@ -65,8 +65,8 @@ def plot_snv_multiplicity(data, output_filename1):
     g.add_legend()
     g.savefig(output_filename1, bbox_inches='tight')
 
-    # VAF for each cn state index (row) and each clone (column)
-    g = sns.FacetGrid(col='leaf', row='cn_state_idx', data=data, sharey=False, hue='ascn')
+    # VAF for each clade (row) and each clone (column)
+    g = sns.FacetGrid(col='leaf', row='clade', data=data, sharey=False, hue='ascn')
     g.map_dataframe(sns.histplot, x='vaf', bins=20, binrange=(0, 1))
     g.add_legend()
     output_filename2 = output_filename1.replace('.pdf', '_by_clone.pdf')
@@ -342,7 +342,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     # filter adata based on tree
     clones = []
     for leaf in tree.get_terminals():
-        clones.append(leaf.name.replace('clone_', ''))
+        clones.append(leaf.name.replace('clone_', '').replace('postwgd_', ''))
     adata = adata[clones].copy()
 
     # plot the clone histogram
