@@ -1,67 +1,12 @@
 import click
 import pandas as pd
 import anndata as ad
-import Bio.Phylo
 import numpy as np
 import logging
 import sys
 import pickle
 import scgenome
-
-
-def add_wgd_tree(T, adata_cn_clusters):
-    for clade in T.find_clades():
-        clade.is_wgd = False
-
-    assert (adata_cn_clusters.obs['n_wgd'] == 0).all() or (adata_cn_clusters.obs['n_wgd'] == 1).all()
-    T.clade.is_wgd = (adata_cn_clusters.obs['n_wgd'] == 1).all()
-
-
-def count_wgd(clade, n_wgd):
-    '''
-    Recursively count the number of WGD events in the tree
-    ----------
-    Input
-    clade : Bio.Phylo.BaseTree.Clade
-        Clade to count WGD events for
-    n_wgd : int
-        Number of WGD events in the root clade
-    '''
-    if clade.is_wgd:
-        clade.n_wgd = n_wgd + 1
-    else:
-        clade.n_wgd = n_wgd
-    for child in clade.clades:
-        count_wgd(child, clade.n_wgd)
-
-
-def split_wgd_branches(tree):
-    """ Split branches that are marked as WGD events into two branches, one
-    before the WGD and one after.
-    ----------
-    Input
-    tree : Bio.Phylo.BaseTree.Tree
-        Tree to split
-    -------
-    Returns
-    Bio.Phylo.BaseTree.Tree
-        Tree with WGD branches split
-    """
-    for clade in list(tree.find_clades()):
-        if clade.is_wgd:
-            post_wgd_clade = Bio.Phylo.BaseTree.Clade(
-                branch_length=1.,
-                name='postwgd_' + clade.name,
-                clades=clade.clades,
-            )
-            post_wgd_clade.is_wgd = False
-            post_wgd_clade.wgd_timing = 'post'
-            post_wgd_clade.n_wgd = clade.n_wgd
-            clade.clades = [post_wgd_clade]
-            clade.wgd_timing = 'pre'
-        else:
-            clade.wgd_timing = 'pre'
-    return tree
+import doubletime as dt
 
 
 @click.command()
@@ -191,13 +136,13 @@ def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_prun
     tree = scgenome.tl.aggregate_tree_branches(tree, f_merge=merge_branches)
 
     # Manually add WGD events to the tree
-    add_wgd_tree(tree, adata_cn_clusters)
+    dt.tl.add_wgd_tree(tree, adata_cn_clusters)
 
     # Recursively add n_wgd to each clade
-    count_wgd(tree.clade, 0)
+    dt.tl.count_wgd(tree.clade, 0)
 
     # split branches with a WGD event into two branches
-    split_wgd_branches(tree)
+    dt.tl.split_wgd_branches(tree)
 
     # Wrangle SNV anndata, filter based on cn adatas and merge bin information
     #
