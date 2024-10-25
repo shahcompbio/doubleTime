@@ -42,7 +42,9 @@ if not os.path.exists(logdir):
 rule all:
     input: 
         os.path.join(outdir, f"{patient_id}_tree_snv_assignment.csv"),
-        os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
+        os.path.join(outplotdir, f"{patient_id}_wgd_tree.pdf"),
+        os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf"),
+        os.path.join(outplotdir, f"{patient_id}_snv_multiplicity.pdf")
 
 
 rule infer_sbmclone_tree:
@@ -119,9 +121,9 @@ rule qc_output_plots:
         snv_multiplicity = os.path.join(outplotdir, f"{patient_id}_snv_multiplicity.pdf"),
         bio_phylo_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_tree.pdf"),
         wgd_tree = os.path.join(outplotdir, f"{patient_id}_wgd_tree.pdf"),
-        apobec_tree = os.path.join(outplotdir, f"{patient_id}_apobec_tree.pdf"),
         bio_phylo_cpg_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_CpG_tree.pdf"),
-        cpg_tree = os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
+        cpg_tree = os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf"),
+        # apobec_tree = os.path.join(outplotdir, f"{patient_id}_apobec_tree.pdf"),
     log:
         os.path.join(logdir, f"{patient_id}_qc_output_plots.log")
     shell:
@@ -130,6 +132,15 @@ rule qc_output_plots:
         --adata_filename {input.adata} --tree_filename {input.tree} --table_filename {input.table} --patient_id {params.patient_id} \
         -srh {output.snv_reads_hist} -ch {output.clone_hist} -cpv {output.clone_pairwise_vaf} \
         -sm {output.snv_multiplicity} -bpt {output.bio_phylo_tree} -wt {output.wgd_tree} \
-        -at {output.apobec_tree} -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} \
+        -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} \
         &> {log}
         """
+        # """
+        # python {scripts_dir}/plot_qc_output.py \
+        # --adata_filename {input.adata} --tree_filename {input.tree} --table_filename {input.table} --patient_id {params.patient_id} \
+        # -srh {output.snv_reads_hist} -ch {output.clone_hist} -cpv {output.clone_pairwise_vaf} \
+        # -sm {output.snv_multiplicity} \ 
+        # -bpt {output.bio_phylo_tree} -wt {output.wgd_tree} \
+        # -at {output.apobec_tree} -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} \
+        # &> {log}
+        # """

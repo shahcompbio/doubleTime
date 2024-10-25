@@ -7,8 +7,9 @@ def add_wgd_tree(tree, adata_cn_clusters):
     '''
     For all branches in the tree, mark whether they contain a WGD event using the is_wgd parameter.
     This function currently assumes that all WGD events are shared rather than independent.
+    
+    Parameters
     ----------
-    Input
     tree : Bio.Phylo.BaseTree.Tree
         Tree to add WGD events to
     adata_cn_clusters : anndata.AnnData
@@ -24,8 +25,9 @@ def add_wgd_tree(tree, adata_cn_clusters):
 def count_wgd(clade, n_wgd):
     '''
     Recursively count the number of WGD events in the tree
+    
+    Parameters
     ----------
-    Input
     clade : Bio.Phylo.BaseTree.Clade
         Clade to count WGD events for
     n_wgd : int
@@ -42,12 +44,14 @@ def count_wgd(clade, n_wgd):
 def split_wgd_branches(tree):
     """ Split branches that are marked as WGD events into two branches, one
     before the WGD and one after.
+
+    Parameters
     ----------
-    Input
     tree : Bio.Phylo.BaseTree.Tree
         Tree to split
-    -------
+    
     Returns
+    -------
     Bio.Phylo.BaseTree.Tree
         Tree with WGD branches split
     """
@@ -73,8 +77,9 @@ def build_cn_states_df(tree, cnA, cnB):
     Build a dataframe of all the possible CN states for each clone in the tree.
     This function currently assumes that there is at most one WGD event in the tree.
     Thus it only accounts for the following allele copy number states: 2|0, 2|1, 2|2, 1|1, 1|0.
+    
+    Parameters
     ----------
-    Inputs
     tree : Bio.Phylo.BaseTree.Tree
         The tree of clades. Each clade should have a boolean attribute 'is_wgd' indicating whether there is a WGD event at this branch.
         There should be leafs attached to each clade. Each leaf should have an integer attribute 'n_wgd' indicating the number of WGD events and the name of the clone.
@@ -82,8 +87,9 @@ def build_cn_states_df(tree, cnA, cnB):
         The copy number of the A allele.
     cnB : int
         The copy number of the B allele.
-    ----------
+
     Returns
+    ----------
     cn_states_dfa : pd.DataFrame
         A dataframe of the possible CN states for the A allele based on the SNVs position within the tree.
     cn_states_dfb : pd.DataFrame
@@ -126,12 +132,14 @@ def is_cpg_snv(data):
     """
     This function checks if a single nucleotide variant (SNV) is a C to T mutation
     in a CpG context or its reverse complement G to A in a CpG context.
+    
+    Parameters
     ----------
-    Input
     data : pd.DataFrame
         A dataframe with columns 'ref', 'alt', and 'tri_nucleotide_context'
-    -------
+    
     Returns
+    -------
     pd.Series
         A boolean series indicating whether the SNV is a C to T mutation in a CpG context
         or a G to A mutation in a CpG context on the reverse strand.
@@ -144,16 +152,18 @@ def is_apobec_snv(ref_base, alt_base, trinucleotide_context):
     """
     Classify a SNV as APOBEC-induced based on its substitution type and trinucleotide context.
     This function also accounts for the reverse complement context.
+    
+    Parameters
     ----------
-    Input
     ref_base : str 
         The reference base (e.g., 'C').
     alt_base : str
         The alternate base (e.g., 'T').
     trinucleotide_context : str
         The trinucleotide context (e.g., 'TCA').
-    -------
+    
     Returns
+    -------
     bool
         True if the SNV is APOBEC-induced, False otherwise.
     """
@@ -180,16 +190,18 @@ def is_c_to_t_in_cpg_context(ref_base, alt_base, trinucleotide_context):
     """
     This function checks if a single nucleotide variant (SNV) is a C to T mutation
     in a CpG context or its reverse complement G to A in a CpG context.
+    
+    Parameters
     ----------
-    Input
     ref_base : str
         The reference nucleotide
     alt_base : str
         The alternate nucleotide
     trinucleotide_context : str
         The trinucleotide context of the SNV (string of 3 nucleotides)
-    ----------
+    
     Returns
+    ----------
     bool
         True if the mutation is a C to T mutation in a CpG context or a G to A mutation
         in a CpG context on the reverse strand, False otherwise.
