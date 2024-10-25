@@ -36,6 +36,8 @@ See `demo/output` for examples.
 
 1. Clone this repository
 2. Install dependencies from `environment.yml`: `conda env create -n doubletime --file environment.yml`
+3. Activate the conda environment: `conda activate doubletime`
+4. Install the doubleTime package: `pip install -e .` or `python setup.py install`. If you wish to install in development mode, use `python setup.py develop`.
 
 Optional: to run the demo, you will need to point `demo.yaml` to the reference genome `GRCh37-lite.fa`, which can be found here: https://www.bcgsc.ca/downloads/genomes/9606/hg19/1000genomes/bwa_ind/genome/GRCh37-lite.fa
 

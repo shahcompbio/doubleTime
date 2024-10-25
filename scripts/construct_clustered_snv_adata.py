@@ -1,6 +1,7 @@
 import click
 import pandas as pd
 import anndata as ad
+import Bio.Phylo
 import numpy as np
 import logging
 import sys
@@ -17,6 +18,15 @@ def add_wgd_tree(T, adata_cn_clusters):
 
 
 def count_wgd(clade, n_wgd):
+    '''
+    Recursively count the number of WGD events in the tree
+    ----------
+    Input
+    clade : Bio.Phylo.BaseTree.Clade
+        Clade to count WGD events for
+    n_wgd : int
+        Number of WGD events in the root clade
+    '''
     if clade.is_wgd:
         clade.n_wgd = n_wgd + 1
     else:
@@ -26,29 +36,32 @@ def count_wgd(clade, n_wgd):
 
 
 def split_wgd_branches(tree):
-    '''
-    Input: tree with n_wgd assigned to each clade
-    ---
-    Description: This function splits branches with n_wgd == 1 into two branches. 
-        The branch length of the original branch is halved and the new branch inherits all of the original branch's children. 
-        The new branch is assigned a name of 'postwgd_' + original_branch_name. 
-        After running this function, the n_wgd and is_wgd attributes are set to 0 and False for all clades in the tree.
-    '''
-    for clade in tree.find_clades():
-        assert clade.n_wgd <= 1
-        if clade.n_wgd == 1:
-            # split the branch into two branches
-            new_clade = tree.clade.__class__(branch_length=clade.branch_length / 2, name='postwgd_'+clade.name)
-            # add the new_clade to the tree to be a child of clade and inherit all of clade's children
-            new_clade.clades = clade.clades
-            clade.clades = [new_clade]
-            # modify the branch length of the original clade
-            clade.branch_length = clade.branch_length / 2
-            # set the n_wgd and is_wgd attributes to 0 and False, respectively as these branches no longer need to be split
-            new_clade.n_wgd = 0
-            clade.n_wgd = 0
-            new_clade.is_wgd = False
-            clade.is_wgd = False
+    """ Split branches that are marked as WGD events into two branches, one
+    before the WGD and one after.
+    ----------
+    Input
+    tree : Bio.Phylo.BaseTree.Tree
+        Tree to split
+    -------
+    Returns
+    Bio.Phylo.BaseTree.Tree
+        Tree with WGD branches split
+    """
+    for clade in list(tree.find_clades()):
+        if clade.is_wgd:
+            post_wgd_clade = Bio.Phylo.BaseTree.Clade(
+                branch_length=1.,
+                name='postwgd_' + clade.name,
+                clades=clade.clades,
+            )
+            post_wgd_clade.is_wgd = False
+            post_wgd_clade.wgd_timing = 'post'
+            post_wgd_clade.n_wgd = clade.n_wgd
+            clade.clades = [post_wgd_clade]
+            clade.wgd_timing = 'pre'
+        else:
+            clade.wgd_timing = 'pre'
+    return tree
 
 
 @click.command()

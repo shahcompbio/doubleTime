@@ -13,6 +13,7 @@ scripts_dir = os.path.join(repo_dir, 'scripts')
 # output directory
 outdir = config["outdir"]
 outplotdir = os.path.join(outdir, "plots")
+logdir = os.path.join(outdir, "logs")
 patient_id = config["patient_id"]
 
 # parameters for doubleTime algorithm
@@ -34,6 +35,9 @@ if not os.path.exists(outdir):
 if not os.path.exists(outplotdir):
     os.makedirs(outplotdir)
 
+if not os.path.exists(logdir):
+    os.makedirs(logdir)
+
 
 rule all:
     input: 
@@ -52,7 +56,7 @@ rule infer_sbmclone_tree:
     output:
         os.path.join(outdir, f"{patient_id}_tree.pickle")
     log:
-        os.path.join(outdir, f"{patient_id}infer_sbmclone_tree.log")
+        os.path.join(logdir, f"{patient_id}_infer_sbmclone_tree.log")
     shell:
         """
         python scripts/infer_sbmclone_tree.py --snv_adata {input.snv_adata} --patient_id {params.patient_id} --output {output} \
@@ -74,7 +78,7 @@ rule construct_clustered_snv_adata:
         clustered_cna_adata=os.path.join(outdir, f"{patient_id}_cna_clustered.h5"),
         pruned_tree=os.path.join(outdir, f"{patient_id}_annotated_tree.pickle"),
     log:
-        os.path.join(outdir, f"{patient_id}_construct_clustered_snv_adata.log")
+        os.path.join(logdir, f"{patient_id}_construct_clustered_snv_adata.log")
     shell:
         """
         python {scripts_dir}/construct_clustered_snv_adata.py \
@@ -93,7 +97,7 @@ rule assign_snvs_to_tree:
     output:
         table=os.path.join(outdir, f"{patient_id}_tree_snv_assignment.csv")
     log:
-        os.path.join(outdir, f"{patient_id}_assign_snvs_to_tree.log")
+        os.path.join(logdir, f"{patient_id}_assign_snvs_to_tree.log")
     shell:
         """
         python {scripts_dir}/assign_snvs_to_tree.py --adata {input.adata} --tree {input.tree} --ref_genome {genome_fasta_filename} \
@@ -119,7 +123,7 @@ rule qc_output_plots:
         bio_phylo_cpg_tree = os.path.join(outplotdir, f"{patient_id}_bio_phylo_CpG_tree.pdf"),
         cpg_tree = os.path.join(outplotdir, f"{patient_id}_CpG_tree.pdf")
     log:
-        os.path.join(outdir, f"{patient_id}_qc_output_plots.log")
+        os.path.join(logdir, f"{patient_id}_qc_output_plots.log")
     shell:
         """
         python {scripts_dir}/plot_qc_output.py \

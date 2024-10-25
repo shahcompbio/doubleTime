@@ -12,6 +12,7 @@ import click
 import logging
 import itertools
 import matplotlib.patches as patches
+import doubletime as dt
 
 n_wgd_colors = ['#CCCCCC', '#FC8D59', '#B30000']
 

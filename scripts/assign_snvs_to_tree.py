@@ -104,6 +104,7 @@ def build_cn_states_df(tree, cnA, cnB):
     This function currently assumes that there is at most one WGD event in the tree.
     Thus it only accounts for the following allele copy number states: 2|0, 2|1, 2|2, 1|1, 1|0.
     ----------
+    Inputs:
     tree: Bio.Phylo.BaseTree.Tree
         The tree of clades. Each clade should have a boolean attribute 'is_wgd' indicating whether there is a WGD event at this branch.
         There should be leafs attached to each clade. Each leaf should have an integer attribute 'n_wgd' indicating the number of WGD events and the name of the clone.
@@ -111,10 +112,15 @@ def build_cn_states_df(tree, cnA, cnB):
         The copy number of the A allele.
     cnB: int
         The copy number of the B allele.
+    ----------
+    Outputs:
+    cn_states_dfa: pd.DataFrame
+        A dataframe of the possible SNV multiplicities for the A allele based on the SNVs position within the tree.
+    cn_states_dfb: pd.DataFrame
+        A dataframe of the possible SNV multiplicities for the B allele based on the SNVs position within the tree.
     '''
 
-    def calculate_snv_multiplicity(cn, leaf_n_wgd, cladename):
-        wgd_timing = 'post' if cladename.startswith('post') else 'pre'
+    def calculate_snv_multiplicity(cn, leaf_n_wgd, wgd_timing):
         if cn == 0:
             return 0
         elif wgd_timing == 'pre' and leaf_n_wgd == 1:
@@ -129,8 +135,8 @@ def build_cn_states_df(tree, cnA, cnB):
             cn_states_df.append({
                 'clade': clade.name,
                 'leaf': leaf.name,
-                'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, clade.name),
-                'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, clade.name)})
+                'cn_a': calculate_snv_multiplicity(cnA, leaf.n_wgd, clade.wgd_timing),
+                'cn_b': calculate_snv_multiplicity(cnB, leaf.n_wgd, clade.wgd_timing)})
 
     # Add zero state to account for the case where the SNV is assigned outside the tree
     for leaf in tree.get_terminals():
