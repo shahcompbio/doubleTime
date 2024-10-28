@@ -198,13 +198,12 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     ## Plot the tree with the branch lengths annotated by the number of SNVs
     ## and WGD events represented by color
     # compute the number of cells assigned to each clone
-    cell_counts = dt.pl.compute_cell_counts(adata, tree)
+    cell_counts = dt.tl.compute_clone_cell_counts(adata, tree)
     # compute the branch lengths of each clade
-    branch_lengths = dt.pl.compute_branch_lengths(data, tree, cell_counts)
+    branch_lengths = dt.tl.compute_branch_lengths(data, tree, cell_counts)
 
     # draw a doubleTime tree using all SNV counts as branch lengths
     ax = dt.pl.plot_clone_tree(tree, branch_lengths, cell_counts)
-    ax.set_xlabel('# SNVs')
     ax.set_title(f'{patient_id}\nSNV types: {snv_types}', fontsize=10)
     fig = ax.get_figure()
     fig.savefig(wgd_tree_filename, bbox_inches='tight')
@@ -216,7 +215,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     ## Plot the tree with the branch lengths annotated by the number of CpG SNVs
     cpg_tree = deepcopy(tree)
     # compute the branch lengths of each clade based on CpG SNVs
-    branch_lengths_cpg = dt.pl.compute_branch_lengths(data, cpg_tree, cell_counts, CpG=True)
+    branch_lengths_cpg = dt.tl.compute_branch_lengths(data, cpg_tree, cell_counts, CpG=True)
     # draw a doubleTime tree using CpG SNV counts as branch lengths
     ax = dt.pl.plot_clone_tree(cpg_tree, branch_lengths_cpg, cell_counts)
     ax.set_xlabel('# CpG SNVs')
@@ -228,70 +227,14 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     Bio.Phylo.draw(cpg_tree)
     plt.savefig(bio_phylo_cpg_tree_filename, bbox_inches='tight')
 
-    # TODO: fix apobec plotting and add it to doubletime.plotting module
-    apobec_fraction = data[['snv', 'clade', 'is_apobec']].drop_duplicates().groupby(['clade'])['is_apobec'].mean()
-    print('apobec_fraction:', apobec_fraction, sep='\n')
+    # compute the fraction of ABOPEC SNVs in each clade
+    apobec_fraction = dt.tl.compute_clade_apobec_fraction(data)
 
     # plot the tree with branch lengths annotated by APOBEC fraction
-    ax = dt.pl.plot_apobec_tree(tree, branch_lengths, cell_counts, apobec_fraction)
-    ax.set_title(f'{patient_id} APOBEC', fontsize=10)
+    ax = dt.pl.plot_clone_tree(tree, branch_lengths, cell_counts, apobec_fraction=apobec_fraction)
+    ax.set_title(f'{patient_id} APOBEC\nSNV types: {snv_types}', fontsize=10)
     fig = ax.get_figure()
     fig.savefig(apobec_tree_filename, bbox_inches='tight')
-
-    # # Compute branch lengths as SNV counts (preferred)
-    # clone_sizes = adata.obs['cluster_size'].copy()
-    # clone_sizes.index = [f'clone_{a}' for a in clone_sizes.index]
-    # for clade in tree.find_clades():
-    #     clade_df = data[data.clade == clade.name]
-    #     cntr = clade_df.wgd_timing.value_counts()
-    #     clade.branch_length = len(clade_df.snv_id.unique())
-    #     if 'prewgd' in cntr.index:
-    #         assert 'postwgd' in cntr.index
-    #         clade.wgd_fraction = 2 * cntr['prewgd'] / (2 * cntr['prewgd'] + cntr['postwgd'])
-    #     if clade.is_terminal():
-    #         clade.cell_count = clone_sizes.loc[clade.name]
-    #         clade.cell_fraction = clone_sizes.loc[clade.name] / clone_sizes.sum()
-
-    
-
-    # # count the number of WGD events in each clade
-    # dt.tl.count_wgd(tree.clade, 0)
-
-
-    # # plot the tree with total SNV counts as branch lengths
-    # # WGD timing on branches is annotated by color
-    # snv_types = sorted(data.ascn.unique())
-    # dt.pl.assign_plot_locations(tree)
-    # plot_wgd_tree(tree, patient_id, snv_types, wgd_tree_filename)
-    
-    # # compute the fraction of ABOPEC SNVs in each clade
-    # apobec_fraction = data[['snv', 'clade', 'wgd_timing', 'is_apobec']].drop_duplicates().groupby(['clade', 'wgd_timing'])['is_apobec'].mean()
-    
-    # # plot the tree with branch lengths annotated by APOBEC fraction
-    # plot_apobec_tree(tree, apobec_fraction, patient_id, apobec_tree_filename)
-
-    # # restrict to CpG SNVs
-    # cpg_tree = deepcopy(tree)
-    # for clade in cpg_tree.find_clades():
-    #     clade_df = data[(data.clade == clade.name) & (data.is_cpg)]
-        
-    #     clade.branch_length = len(clade_df.snv_id.unique())
-        
-    #     if clade.is_wgd:
-    #         cntr = clade_df.wgd_timing.value_counts().reindex(['prewgd', 'postwgd'])
-    #         clade.wgd_fraction = 2 * cntr['prewgd'] / (2 * cntr['prewgd'] + cntr['postwgd'])
-    #     if clade.is_terminal():
-    #         clade.cell_count = clone_sizes.loc[clade.name]
-    #         clade.cell_fraction = clone_sizes.loc[clade.name] / clone_sizes.sum()
-
-    # # draw a Bio.Phylo tree using the CpG SNV counts as branch lengths
-    # Bio.Phylo.draw(cpg_tree)
-    # plt.savefig(bio_phylo_cpg_tree_filename, bbox_inches='tight')
-
-    # # plot the tree using CpG SNVs
-    # # WGD timing on branches are annotated by color
-    # assign_plot_locations(cpg_tree)
-    # plot_cpg_tree(tree, cpg_tree, patient_id, snv_types, cpg_tree_filename)
 
 
 if __name__ == "__main__":
