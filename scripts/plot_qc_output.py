@@ -150,10 +150,6 @@ def plot_snv_multiplicity(data, output_filename1):
 @click.option('--bio_phylo_cpg_tree_filename', '-bptc')
 @click.option('--cpg_tree_filename', '-ct')
 @click.option('--apobec_tree_filename', '-at')
-# def main(tree_filename, adata_filename, table_filename, patient_id, 
-#          snv_reads_hist_filename, clone_hist_filename, clone_pairwise_vaf_filename,
-#          snv_multiplicity_filename, bio_phylo_tree_filename, wgd_tree_filename,
-#          apobec_tree_filename, bio_phylo_cpg_tree_filename, cpg_tree_filename):
 def main(tree_filename, adata_filename, table_filename, patient_id, 
          snv_reads_hist_filename, clone_hist_filename, clone_pairwise_vaf_filename,
          snv_multiplicity_filename, bio_phylo_tree_filename, wgd_tree_filename, 

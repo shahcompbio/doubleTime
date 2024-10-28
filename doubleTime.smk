@@ -135,12 +135,3 @@ rule qc_output_plots:
         -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} -at {output.apobec_tree} \
         &> {log}
         """
-        # """
-        # python {scripts_dir}/plot_qc_output.py \
-        # --adata_filename {input.adata} --tree_filename {input.tree} --table_filename {input.table} --patient_id {params.patient_id} \
-        # -srh {output.snv_reads_hist} -ch {output.clone_hist} -cpv {output.clone_pairwise_vaf} \
-        # -sm {output.snv_multiplicity} \ 
-        # -bpt {output.bio_phylo_tree} -wt {output.wgd_tree} \
-        # -at {output.apobec_tree} -bptc {output.bio_phylo_cpg_tree} -ct {output.cpg_tree} \
-        # &> {log}
-        # """
