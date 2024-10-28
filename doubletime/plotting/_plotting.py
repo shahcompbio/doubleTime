@@ -131,6 +131,38 @@ def compute_branch_lengths(data, tree, cell_counts, CpG=False):
     return branch_lengths
 
 
+def draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction, bar_height=0.25):
+    ''''
+    Draw a red bars for the APOBEC fraction and grey bars for the non-APOBEC fraction of the given clade.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axes to draw the bars on.
+    clade : Bio.Phylo.BaseTree.Clade
+        The clade to draw the bars for. 
+        Contains the branch length, start, and position along with the name of the clade.
+    apobec_fraction : dict
+        A dictionary with clade.name as the key and the APOBEC fraction as the value.
+    bar_height : float
+        The height of the bars to draw.
+    '''
+    bars = []
+    start = clade.branch_start
+    length = clade.branch_length * apobec_fraction.get((clade.name), 0)
+    bars.append({'start': start, 'length': length, 'color': 'r'})
+
+    start += length
+    length = clade.branch_length * (1. - apobec_fraction.get((clade.name), 0))
+    bars.append({'start': start, 'length': length, 'color': '0.75'})
+
+    for bar in bars:
+        rect = patches.Rectangle(
+            (bar['start'], clade.branch_pos-bar_height/2.), bar['length'], bar_height, 
+            linewidth=0, edgecolor='none', facecolor=bar['color'])
+        ax.add_patch(rect)
+
+
 def draw_branch_wgd_fraction(ax, clade, bar_height=0.25):
     if clade.wgd_timing == 'pre':
         rect = patches.Rectangle(
@@ -173,41 +205,156 @@ def draw_leaf_tri_size(ax, clade, scale_cell_fraction=100):
 
 
 def plot_clone_tree(tree, branch_lengths, cell_counts, pre_malignant_interval=None, ax=None, scale_cell_fraction=100):
+    '''
+    Plot a tree with branch lengths annotated by the number of SNVs and branch colors split by WGD status.
+    Here, SNVs occuring before the WGD event are colored in gray, SNVs occuring after the WGD event are colored in orange.
+
+    Parameters
+    ----------
+    tree : Bio.Phylo.BaseTree.Tree
+        The tree to plot.
+    branch_lengths : dict
+        A dictionary mapping clade names to branch lengths.
+    cell_counts : pd.Series
+        A series with the number of cells in each clade.
+    pre_malignant_interval : float, optional
+        The fraction of the branch length at which the malignant event occurs.
+    ax : matplotlib.axes.Axes, optional
+        The axis to plot on. If None, a new figure is created.
+    scale_cell_fraction : int, optional
+        The scale factor for the size of the triangles representing the number of cells in each clone.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axis with the plot.
+    '''
+    
     tree = copy.copy(tree)
     
+    # assign branch lengths directly to the tree object
     for clade in tree.find_clades():
         clade.branch_length = branch_lengths[clade.name]
 
+    # assign the number of cells to each clone (leaf objects)
     total_cell_count = sum([cell_counts[leaf.name] for leaf in tree.get_terminals()])
     for leaf in tree.get_terminals():
         leaf.cell_count = cell_counts[leaf.name]
         leaf.cell_fraction = cell_counts[leaf.name] / total_cell_count
 
+    # compute the locations for each clade within the figure
     assign_plot_locations(tree)
 
+    # create a new figure if ax is None
     if ax is None:
         fig, ax = plt.subplots(figsize=(5, 1), dpi=150)
 
     for clade in tree.find_clades():
+        # draw the branch lengths with colors based on the WGD status
         draw_branch_wgd_fraction(ax, clade)
+        # draw an orange triangle at the top of each WGD event
         draw_branch_wgd_event(ax, clade)
+        # draw the branch links
         draw_branch_links(ax, clade)
+        # draw the number of cells in each clone as a triangle on the right side
         draw_leaf_tri_size(ax, clade, scale_cell_fraction=scale_cell_fraction)
 
+    # add a blue triangle at the top of the branch where the malignant event occurs
     if pre_malignant_interval is not None:
         draw_branch_malignant_event(ax, tree.clade, pre_malignant_interval)
 
-    yticks = list(zip(*[(clade.branch_pos, f'{clade.name}, n={clade.cell_count}') for clade in tree.get_terminals()]))
+    # format the axes
+    yticks = list(zip(*[(clade.branch_pos, f'{clade.name.replace("postwgd_", "").replace("_", " ")}, n={clade.cell_count}') for clade in tree.get_terminals()]))
     ax.set_yticks(*yticks)
     ax.yaxis.tick_right()
+    sns.despine(ax=ax, trim=True, left=True, right=False)
     ax.yaxis.tick_right()
     ax.yaxis.set_ticks_position('right')
     ax.set_ylim((-0.5, tree.count_terminals() - 0.5))
 
+    # add a legend for the WGD status
     legend_elements = [patches.Patch(color=n_wgd_colors[0], label='0'),
                        patches.Patch(color=n_wgd_colors[1], label='1'),
                        patches.Patch(color=n_wgd_colors[2], label='2')]
     legend_1 = ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.4, 1), frameon=False, fontsize=8, title='#WGD')
+    
+    return ax
+
+
+def plot_apobec_tree(tree, branch_lengths, cell_counts, apobec_fraction, pre_malignant_interval=None, ax=None, scale_cell_fraction=100):
+    '''
+    Plot a tree with branch lengths annotated by the fraction of APOBEC SNVs.
+
+    Parameters
+    ----------
+    tree : Bio.Phylo.BaseTree.Tree
+        The tree to plot.
+    branch_lengths : dict
+        A dictionary mapping clade names to branch lengths.
+    cell_counts : pd.Series
+        A series with the number of cells in each clade.
+    apobec_fraction : pd.Series
+        A series with the fraction of APOBEC SNVs in each clade.
+    pre_malignant_interval : float, optional
+        The fraction of the branch length at which the malignant event occurs.
+    ax : matplotlib.axes.Axes, optional
+        The axis to plot on. If None, a new figure is created.
+    scale_cell_fraction : int, optional
+        The scale factor for the size of the triangles representing the number of cells in each clone.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axis with the plot.
+    '''
+    tree = copy.copy(tree)
+    
+    # assign branch lengths directly to the tree object
+    for clade in tree.find_clades():
+        clade.branch_length = branch_lengths[clade.name]
+
+    # assign the number of cells to each clone (leaf objects)
+    total_cell_count = sum([cell_counts[leaf.name] for leaf in tree.get_terminals()])
+    for leaf in tree.get_terminals():
+        leaf.cell_count = cell_counts[leaf.name]
+        leaf.cell_fraction = cell_counts[leaf.name] / total_cell_count
+
+    # compute the locations for each clade within the figure
+    assign_plot_locations(tree)
+
+    # create a new figure if ax is None
+    if ax is None:
+        fig, ax = plt.subplots(figsize=(5, 1), dpi=150)
+
+    for clade in tree.find_clades():
+        # draw APOBEC SNVs in red, non-APOBEC in gray
+        draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction)
+        # draw the branch links
+        draw_branch_links(ax, clade)
+        # annotate any WGD events with an orange triangle
+        draw_branch_wgd_event(ax, clade)
+    
+    # add a blue triangle at the top of the branch where the malignant event occurs
+    if pre_malignant_interval is not None:
+        draw_branch_malignant_event(ax, tree.clade, pre_malignant_interval)
+
+    # format the axes
+    yticks = list(zip(*[(clade.branch_pos, f'{clade.name.replace("postwgd_", "").replace("_", " ")}, n={clade.cell_count}') for clade in tree.get_terminals()]))
+    ax.set_yticks(*yticks)
+    ax.yaxis.tick_right()
+    sns.despine(ax=ax, trim=True, left=True, right=False)
+    ax.yaxis.tick_right()
+    ax.yaxis.set_ticks_position('right')
+    ax.set_xlabel('# SNVs')
+
+    # draw triangles on the right side to represent the number of cells in each clone 
+    for clade in tree.find_clades():
+        draw_leaf_tri_size(ax, clade, scale_cell_fraction=scale_cell_fraction)
+    
+    # add a legned for the SNV type
+    legend_elements = [patches.Patch(color='r', label='APOBEC'),
+                       patches.Patch(color='0.75', label='Non-APOBEC')]
+    legend_1 = ax.legend(handles=legend_elements, loc='upper left', bbox_to_anchor=(1.4, 1), frameon=False, fontsize=8, title='SNV type')
     
     return ax
 

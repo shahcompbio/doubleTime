@@ -103,63 +103,9 @@ def plot_snv_multiplicity(data, output_filename1):
 #         length1 = clade.branch_length * clade.wgd_fraction
 #         ax.scatter([clade.branch_start + length1], [clade.branch_pos+bar_height], marker='v', color='darkorange')
 
-        
-def draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction, bar_height=0.25):
-    bars = []
-    if clade.is_wgd:
-        start = clade.branch_start
-        length = clade.branch_length * clade.wgd_fraction * apobec_fraction.get((clade.name, 'prewgd'), 0)
-        bars.append({'start': start, 'length': length, 'color': 'r'})
-
-        start += length
-        length = clade.branch_length * clade.wgd_fraction * (1. - apobec_fraction.get((clade.name, 'prewgd'), 0))
-        bars.append({'start': start, 'length': length, 'color': '0.75'})
-
-        start += length
-        length = clade.branch_length * (1. - clade.wgd_fraction) * apobec_fraction.get((clade.name, 'postwgd'), 0)
-        bars.append({'start': start, 'length': length, 'color': 'r'})
-
-        start += length
-        length = clade.branch_length * (1. - clade.wgd_fraction) * (1. - apobec_fraction.get((clade.name, 'postwgd'), 0))
-        bars.append({'start': start, 'length': length, 'color': '0.75'})
-
-    else:
-        start = clade.branch_start
-        length = clade.branch_length * apobec_fraction.get((clade.name, 'none'), 0)
-        bars.append({'start': start, 'length': length, 'color': 'r'})
-
-        start += length
-        length = clade.branch_length * (1. - apobec_fraction.get((clade.name, 'none'), 0))
-        bars.append({'start': start, 'length': length, 'color': '0.75'})
-
-    for bar in bars:
-        rect = patches.Rectangle(
-            (bar['start'], clade.branch_pos-bar_height/2.), bar['length'], bar_height, 
-            linewidth=0, edgecolor='none', facecolor=bar['color'])
-        ax.add_patch(rect)
 
 
-# def plot_apobec_tree(tree, apobec_fraction, patient_id, output_filename):
-#     fig, ax = plt.subplots(figsize=(5, 1), dpi=150)
 
-#     for clade in tree.find_clades():
-#         draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction)
-#         draw_branch_links(ax, clade)
-#         draw_branch_wgd_event(ax, clade)
-
-#     yticks = list(zip(*[(clade.branch_pos, f'{clade.name.replace("_", " ")}, n={clade.cell_count}') for clade in tree.get_terminals()]))
-#     ax.set_yticks(*yticks)
-#     ax.yaxis.tick_right()
-#     sns.despine(trim=True, left=True, right=False)
-#     ax.yaxis.tick_right()
-#     ax.yaxis.set_ticks_position('right')
-#     ax.set_xlabel('# SNVs')
-
-#     for clade in tree.find_clades():
-#         draw_leaf_tri_size(ax, clade, bar_height=0)
-
-#     ax.set_title(f'Patient {patient_id} APOBEC')
-#     fig.savefig(output_filename, bbox_inches='tight')
 
 
 # def plot_cpg_tree(tree, cpg_tree, patient_id, snv_types, output_filename):
@@ -203,7 +149,7 @@ def draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction, bar_height=0.25)
 @click.option('--wgd_tree_filename', '-wt')
 @click.option('--bio_phylo_cpg_tree_filename', '-bptc')
 @click.option('--cpg_tree_filename', '-ct')
-# @click.option('--apobec_tree_filename', '-at')
+@click.option('--apobec_tree_filename', '-at')
 # def main(tree_filename, adata_filename, table_filename, patient_id, 
 #          snv_reads_hist_filename, clone_hist_filename, clone_pairwise_vaf_filename,
 #          snv_multiplicity_filename, bio_phylo_tree_filename, wgd_tree_filename,
@@ -211,7 +157,7 @@ def draw_branch_wgd_apobec_fraction(ax, clade, apobec_fraction, bar_height=0.25)
 def main(tree_filename, adata_filename, table_filename, patient_id, 
          snv_reads_hist_filename, clone_hist_filename, clone_pairwise_vaf_filename,
          snv_multiplicity_filename, bio_phylo_tree_filename, wgd_tree_filename, 
-         bio_phylo_cpg_tree_filename, cpg_tree_filename):
+         bio_phylo_cpg_tree_filename, cpg_tree_filename, apobec_tree_filename):
     # load the input files
     adata = ad.read_h5ad(adata_filename)
     tree = pickle.load(open(tree_filename, 'rb'))
@@ -283,6 +229,14 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     plt.savefig(bio_phylo_cpg_tree_filename, bbox_inches='tight')
 
     # TODO: fix apobec plotting and add it to doubletime.plotting module
+    apobec_fraction = data[['snv', 'clade', 'is_apobec']].drop_duplicates().groupby(['clade'])['is_apobec'].mean()
+    print('apobec_fraction:', apobec_fraction, sep='\n')
+
+    # plot the tree with branch lengths annotated by APOBEC fraction
+    ax = dt.pl.plot_apobec_tree(tree, branch_lengths, cell_counts, apobec_fraction)
+    ax.set_title(f'{patient_id} APOBEC', fontsize=10)
+    fig = ax.get_figure()
+    fig.savefig(apobec_tree_filename, bbox_inches='tight')
 
     # # Compute branch lengths as SNV counts (preferred)
     # clone_sizes = adata.obs['cluster_size'].copy()
