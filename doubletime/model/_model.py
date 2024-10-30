@@ -347,14 +347,29 @@ class doubleTimeModel(object):
             # find out which branch each SNV is assigned to for all SNVs belonging to this SNV type
             temp_learned_state_idx = self.trace.nodes[f'state_idx_{cnA}{cnB}']['value'].detach().numpy()
 
+            # create a dataframe with the SNV ids for this SNV type
             temp_data = pd.Series(self.snv_ids[i], name='snv_id').rename_axis('snv').reset_index()
-            temp_data = temp_data.merge(pd.DataFrame(self.alt_counts[i].detach().numpy(), columns=self.clone_names).melt(ignore_index=False, var_name='leaf', value_name='alt_counts').rename_axis('snv').reset_index())
-            temp_data = temp_data.merge(pd.DataFrame(self.total_counts[i].detach().numpy(), columns=self.clone_names).melt(ignore_index=False, var_name='leaf', value_name='total_counts').rename_axis('snv').reset_index())
-            temp_data = temp_data.merge(pd.DataFrame(self.cn_states[i, temp_learned_state_idx, :, 0].detach().numpy(), columns=self.clone_names).melt(ignore_index=False, var_name='leaf', value_name='cn_state_a').rename_axis('snv').reset_index())
-            temp_data = temp_data.merge(pd.DataFrame(self.cn_states[i, temp_learned_state_idx, :, 1].detach().numpy(), columns=self.clone_names).melt(ignore_index=False, var_name='leaf', value_name='cn_state_b').rename_axis('snv').reset_index())
-            temp_data = temp_data.merge(pd.DataFrame({'clade': self.clade_index[temp_learned_state_idx]}).rename_axis('snv').reset_index())
+
+            # create a DataArray for the alt counts, total counts, copy number states, and clade index for this SNV type
+            # all DataArrays except for clade_da will have dimensions of snv and leaf
+            snv_ids = range(self.alt_counts[i].shape[0])
+            alt_counts_da = xr.DataArray(self.alt_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
+            total_counts_da = xr.DataArray(self.total_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
+            cn_state_a_da = xr.DataArray(self.cn_states[i, temp_learned_state_idx, :, 0].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
+            cn_state_b_da = xr.DataArray(self.cn_states[i, temp_learned_state_idx, :, 1].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
+            clade_da = xr.DataArray(self.clade_index[temp_learned_state_idx], dims=["snv"], coords={"snv": range(len(self.clade_index[temp_learned_state_idx]))})
+
+            # merge the DataArrays into one dataframe, using their shared 'snv' and 'leaf' columns to merge
+            temp_data = temp_data.merge(alt_counts_da.to_dataframe(name='alt_counts').reset_index())
+            temp_data = temp_data.merge(total_counts_da.to_dataframe(name='total_counts').reset_index())
+            temp_data = temp_data.merge(cn_state_a_da.to_dataframe(name='cn_state_a').reset_index())
+            temp_data = temp_data.merge(cn_state_b_da.to_dataframe(name='cn_state_b').reset_index())
+            temp_data = temp_data.merge(clade_da.to_dataframe(name='clade').reset_index())
+            
+            # convert the copy number states to integers
             temp_data['cn_state_a'] = temp_data['cn_state_a'].astype(int).astype('category')
             temp_data['cn_state_b'] = temp_data['cn_state_b'].astype(int).astype('category')
+            # compute the VAF based on the total and alternate read counts
             temp_data['vaf'] = temp_data['alt_counts'] / temp_data['total_counts']
 
             if data != []:
