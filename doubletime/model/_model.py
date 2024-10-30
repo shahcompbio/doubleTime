@@ -31,8 +31,8 @@ class doubleTimeModel(object):
         Parameters
         ----------
         adata : anndata.AnnData
-            Anndata object containing the SNV data. Rows in this object should correspond to clones (leafs in the tree) 
-            and columns should correspond to unique SNVs.
+            Anndata object containing the SNV data. Observations (.obs, matrix rows) in this object should correspond to clones (leafs in the tree) 
+            and variables (.var, matrix columns) should correspond to unique SNVs.
             This object should contain the following layers:
                 total_count : total read counts for each SNV
                 alt_count : alternate read counts for each SNV
@@ -63,9 +63,6 @@ class doubleTimeModel(object):
         # preprocessing function that convert adata and tree to the inputs for self.model()
         self.total_cns, self.total_counts, self.alt_counts, \
             self.cn_states, self.snv_ids, self.clone_names, self.clade_index = self.preprocess_data()
-
-        print('clone_names:', self.clone_names)
-        print('clade_index:', self.clade_index)
         
         # Initialize the model
         pyro.clear_param_store()
