@@ -252,71 +252,34 @@ class doubleTimeModel(object):
         alt_counts_list = []
         total_cn_list = []
         snv_ids_list = []
+        # loop over all the possible SNV types in a given sample
         for ascn in self.snv_types:
             cnA = int(ascn.split(':')[0])
             cnB = int(ascn.split(':')[1])
+            # build the copy number states DataFrame for the current SNV type
             temp_cn_states_df_a, temp_cn_states_df_b = dt.tl.build_cn_states_df(self.tree, cnA, cnB)
 
-            # Ensure correct ordering
-            temp_cn_states_df_a = temp_cn_states_df_a[clone_names]
-            temp_cn_states_df_b = temp_cn_states_df_b[clone_names]
-            temp_cn_states = torch.stack([torch.tensor(temp_cn_states_df_a.values), torch.tensor(temp_cn_states_df_b.values)], dim=2)
-            cn_states_list.append(temp_cn_states)
-
-            temp_adata = self.adata[leaf_ids, (self.adata.var['snv_type'] == ascn)].copy()
-            temp_total_counts = torch.tensor(np.array(temp_adata.layers['total_count']).T, dtype=torch.float32)
-            temp_alt_counts = torch.tensor(np.array(temp_adata.layers['alt_count']).T, dtype=torch.float32)
-            temp_total_cn = torch.tensor(np.array(temp_adata.layers['Maj']).T + np.array(temp_adata.layers['Min']).T, dtype=torch.float32)
-            total_counts_list.append(temp_total_counts)
-            alt_counts_list.append(temp_alt_counts)
-            total_cn_list.append(temp_total_cn)
-            snv_ids_list.append(temp_adata.var.index)
-            print(f'There are {temp_adata.var.index.size} SNV IDs with SNV type {ascn}')
-
-        # stack the list of tensors (one for each SNV type) into a single tensor
-        cn_states = torch.stack(cn_states_list, dim=0)
-
-        print('Shape of output objects under the old approach (list of tensors):')
-        print('cn_states.shape:', cn_states.shape)
-        print('len(total_counts_list):', len(total_counts_list))
-        print('total_counts_list[0].shape:', total_counts_list[0].shape)
-        print('alt_counts_list[0].shape:', alt_counts_list[0].shape)
-        print('total_cn_list[0].shape:', total_cn_list[0].shape)
-        print('len(snv_ids_list):', len(snv_ids_list))
-        print('len(snv_ids_list[0]):', len(snv_ids_list[0]))
-
-        # prepare input to model
-        cn_states_list = []
-        total_counts_list = []
-        alt_counts_list = []
-        total_cn_list = []
-        snv_ids_list = []
-        for ascn in self.snv_types:
-            cnA = int(ascn.split(':')[0])
-            cnB = int(ascn.split(':')[1])
-            temp_cn_states_df_a, temp_cn_states_df_b = dt.tl.build_cn_states_df(self.tree, cnA, cnB)
-
-            # print('temp_cn_states_df_a.shape:', temp_cn_states_df_a.shape)
-
-            # Ensure correct ordering
+            # Ensure correct ordering of clones
             temp_cn_states_df_a = temp_cn_states_df_a[clone_names]
             temp_cn_states_df_b = temp_cn_states_df_b[clone_names]
 
-            # print('position', temp_cn_states_df_a.index.values)
-            # print('clone', clone_names)
-            # print('leaf_ids', leaf_ids)
-
+            # convert the DataFrames to DataArrays
+            # the DataArray will have dimensions of position, clone, and allele
             temp_cn_states = xr.DataArray(
                 np.stack([temp_cn_states_df_a.values, temp_cn_states_df_b.values], axis=2),
                 dims=["position", "clone", "allele"],
                 coords={"position": temp_cn_states_df_a.index.values, "clone": leaf_ids.values, "allele": ["a", "b"]}
             )
+            # append the DataArray to the list
+            # no need to convert to a tensor yet since the list of DataArrays will be converted to a tensor later
             cn_states_list.append(temp_cn_states)
 
+            # subset adata to just the SNVs of the current SNV type
             temp_adata = self.adata[leaf_ids, (self.adata.var['snv_type'] == ascn)].copy()
             temp_snv_ids = temp_adata.var.index.values
-            print(f'There are {temp_snv_ids.size} SNV IDs with SNV type {ascn}')
-            # print('temp_snv_ids', temp_snv_ids)
+
+            # convert the total counts, alt counts, and total CN to DataArrays with the dimensions of snv_id and clone
+            # importantly, the length of the snv_id dimension will vary as we loop over SNV types
             temp_total_counts = xr.DataArray(
                 np.array(temp_adata.layers['total_count']).T,
                 dims=["snv_id", "clone"],
@@ -333,52 +296,15 @@ class doubleTimeModel(object):
                 coords={"snv_id": temp_snv_ids, "clone": leaf_ids.values}
             )
 
-            # convert the xarrays to tensors before appending to list
+            # we convert these DataArrays to tensors before appending to the list since they cannot be stacked along the snv_id dimension,
+            # unlike the cn_states DataArrays, which means we pass these objects to the model as a list of tensors
             total_counts_list.append(torch.tensor(temp_total_counts.values, dtype=torch.float32))
             alt_counts_list.append(torch.tensor(temp_alt_counts.values, dtype=torch.float32))
             total_cn_list.append(torch.tensor(temp_total_cn.values, dtype=torch.float32))
             snv_ids_list.append(temp_snv_ids)
 
-        # stack the list of DataArrays (one for each SNV type) into a single DataArray
+        # stack the list of cn states DataArrays (one for each SNV type) into a single DataArray and convert to a tensor
         cn_states = torch.tensor(xr.concat(cn_states_list, dim="snv_type").values, dtype=torch.float32)
-        # total_counts = xr.concat(total_counts_list, dim="snv_type")
-        # alt_counts = xr.concat(alt_counts_list, dim="snv_type")
-        # total_cn = xr.concat(total_cn_list, dim="snv_type")
-
-        # print('total_counts:', total_counts, sep='\n')
-        # print('alt_counts:', alt_counts, sep='\n')
-        # print('total_cn:', total_cn, sep='\n')
-
-        # snv_ids = xr.concat([xr.DataArray(snv_ids, dims=["snv_id"]) for snv_ids in snv_ids_list], dim="snv_type")
-        # snv_ids = xr.DataArray(np.stack(snv_ids_list), dims=["snv_id"])
-
-        # print('snv_ids:', snv_ids.shape, sep='\n')
-
-        print('Shape of output objects under the new approach (xarrays):')
-        print('cn_states.shape:', cn_states.shape)
-        print('len(total_counts_list):', len(total_counts_list))
-        print('total_counts_list[0].shape:', total_counts_list[0].shape)
-        print('alt_counts_list[0].shape:', alt_counts_list[0].shape)
-        print('total_cn_list[0].shape:', total_cn_list[0].shape)
-        print('len(snv_ids_list):', len(snv_ids_list))
-        print('len(snv_ids_list[0]):', len(snv_ids_list[0]))
-
-        # use print statements to compare the shapes of the DataArrays to the expected shapes
-        # print('cn_states.shape:', cn_states.shape)
-        # print('total_counts.shape:', total_counts.shape)
-        # print('alt_counts.shape:', alt_counts.shape)
-        # print('total_cn.shape:', total_cn.shape)
-        # print('snv_ids.shape:', snv_ids.shape)
-
-        # print('cn_states.dims:', cn_states.dims)
-        # print('cn_states.coords:', cn_states.coords)
-        # print('total_counts.dims:', total_counts.dims)
-        # print('alt_counts.dims:', alt_counts.dims)
-        # print('total_cn.dims:', total_cn.dims)
-        # print('snv_ids.dims:', snv_ids.dims)
-
-        print('length of total_counts_list:', len(total_counts_list))
-        print('shape of total_counts_list[0]:', total_counts_list[0].shape)
 
         # Ensure there is at least one snv
         n_snvs = sum(a.shape[0] for a in total_counts_list)
