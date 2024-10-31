@@ -238,9 +238,9 @@ def compute_clone_cell_counts(adata, tree):
     cell_counts : pd.Series
         Number of cells assigned to each clone (i.e. terminal clade). Input for dt.pl.plot_clone_tree().
     '''
-    # get all of the clade names in the tree
+    # get all of the clade names in the tree that contain the keyword 'clone'
     # importantly, this includes the post-WGD clades for WGD branches split into pre- and post-WGD clades
-    clade_names = [clade.name for clade in tree.find_clades()]
+    clone_names = [clade.name for clade in tree.find_clades() if 'clone' in clade.name]
 
     # find the number of cells assigned to each clone from doubleTree output
     cell_counts = adata.obs['cluster_size'].copy()
@@ -248,9 +248,9 @@ def compute_clone_cell_counts(adata, tree):
     # rename the index of cell_counts so that they match the clade names in the tree
     new_index = []
     for a in cell_counts.index:
-        # find the elements of clade_names that end with the integer a
+        # find the elements of clone_names that end with the integer a
         # this should append `postwgd_clone_{a}`` if there is a postwgd clade, otherwise `clone_{a}`
-        matching_clades = sorted([c for c in clade_names if c.endswith(str(a))])[::-1]
+        matching_clades = sorted([c for c in clone_names if c.endswith(str(a))])[::-1]
         new_index.append(matching_clades[0])
     cell_counts.index = new_index
 
