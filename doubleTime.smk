@@ -73,6 +73,7 @@ rule construct_clustered_snv_adata:
         tree=os.path.join(outdir, f"{patient_id}_tree.pickle"),
     params: 
         patient_id=patient_id,
+        wgd_depth = config['wgd_depth']
     resources:
         mem_mb=128000
     output:
@@ -87,6 +88,7 @@ rule construct_clustered_snv_adata:
             --adata_cna {input.cna_adata}  --adata_snv {input.snv_adata} --tree_filename {input.tree} \
             --min_clone_size {tree_snv_min_clone_size} --min_num_snvs {tree_snv_min_num_snvs} --min_prop_clonal_wgd {tree_snv_min_prop_clonal_wgd} \
             --output_cn {output.clustered_cna_adata} --output_snv {output.clustered_snv_adata} --output_pruned_tree {output.pruned_tree} \
+            --wgd_depth {params.wgd_depth} \
             &> {log}
         """
 

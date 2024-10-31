@@ -3,7 +3,7 @@ import numpy as np
 import Bio.Phylo
 
 
-def add_wgd_tree(tree, adata_cn_clusters):
+def add_wgd_tree(tree, adata_cn_clusters, wgd_depth=0):
     '''
     For all branches in the tree, mark whether they contain a WGD event using the is_wgd parameter.
     This function currently assumes that all WGD events are shared rather than independent.
@@ -14,12 +14,32 @@ def add_wgd_tree(tree, adata_cn_clusters):
         Tree to add WGD events to
     adata_cn_clusters : anndata.AnnData
         Copy number data with n_wgd column in obs
+    wgd_depth : int
+        The depth of the WGD event in the tree. This should be 0 if the WGD event is at the root of the tree,
+        1 if the WGD event is on the children of the root, 2 if the WGD event is on the grandchildren of the root, etc.
     '''
     for clade in tree.find_clades():
         clade.is_wgd = False
 
+    # make sure that all clones have either 0 or 1 WGD event
     assert (adata_cn_clusters.obs['n_wgd'] == 0).all() or (adata_cn_clusters.obs['n_wgd'] == 1).all()
-    tree.clade.is_wgd = (adata_cn_clusters.obs['n_wgd'] == 1).all()
+
+    # if all clones have 1 WGD event, we know that there must be at least one WGD event in the tree
+    if (adata_cn_clusters.obs['n_wgd'] == 1).all():
+        # find all clades that are `wgd_depth` generations below the root
+        current_clades = [tree.clade]
+        for _ in range(wgd_depth):
+            # find all the child clades that descend from the set of current clades
+            child_clades = []
+            for clade in current_clades:
+               child_clades.extend(clade.clades)
+            # set the child clades as the current clades
+            current_clades = child_clades
+
+        # set is_wgd to True for all the clades at the desired depth
+        for clade in current_clades:
+            clade.is_wgd = True
+
 
 
 def count_wgd(clade, n_wgd=0):

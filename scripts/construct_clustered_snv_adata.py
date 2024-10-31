@@ -19,7 +19,8 @@ import doubletime as dt
 @click.option('--min_clone_size', type=int, default=20, required=False)
 @click.option('--min_num_snvs', type=int, default=20, required=False) # TODO
 @click.option('--min_prop_clonal_wgd', type=float, default=0.8, required=False)
-def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd):
+@click.option('--wgd_depth', type=int, default=0, required=False)
+def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd, wgd_depth=0.5):
     adata = ad.read_h5ad(adata_cna)
     adata.obs['haploid_depth'] = adata.obs['coverage_depth'] / adata.obs['ploidy']
 
@@ -136,7 +137,9 @@ def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_prun
     tree = scgenome.tl.aggregate_tree_branches(tree, f_merge=merge_branches)
 
     # Manually add WGD events to the tree
-    dt.tl.add_wgd_tree(tree, adata_cn_clusters)
+    # the wgd_depth parameter controls whether a WGD event is added at the root of the tree
+    # or multiple independent events are placed on branches `wgd_depth` generations below the root
+    dt.tl.add_wgd_tree(tree, adata_cn_clusters, wgd_depth=wgd_depth)
 
     # split branches with a WGD event into two branches
     dt.tl.split_wgd_branches(tree)
