@@ -264,11 +264,11 @@ class doubleTimeModel(object):
             temp_cn_states_df_b = temp_cn_states_df_b[clone_names]
 
             # convert the DataFrames to DataArrays
-            # the DataArray will have dimensions of position, clone, and allele
+            # the DataArray will have dimensions of tree position (state), clone, and allele
             temp_cn_states = xr.DataArray(
                 np.stack([temp_cn_states_df_a.values, temp_cn_states_df_b.values], axis=2),
-                dims=["position", "clone", "allele"],
-                coords={"position": temp_cn_states_df_a.index.values, "clone": leaf_ids.values, "allele": ["a", "b"]}
+                dims=["state", "clone", "allele"],
+                coords={"state": temp_cn_states_df_a.index.values, "clone": leaf_ids.values, "allele": ["a", "b"]}
             )
             # append the DataArray to the list
             # no need to convert to a tensor yet since the list of DataArrays will be converted to a tensor later
@@ -347,11 +347,10 @@ class doubleTimeModel(object):
             # find out which branch each SNV is assigned to for all SNVs belonging to this SNV type
             temp_learned_state_idx = self.trace.nodes[f'state_idx_{cnA}{cnB}']['value'].detach().numpy()
 
-            # create a dataframe with the SNV ids for this SNV type
-            temp_data = pd.Series(self.snv_ids[i], name='snv_id').rename_axis('snv').reset_index()
+            # create a DataArray with the SNV ids for this SNV type
+            temp_data = xr.DataArray(self.snv_ids[i], dims=["snv"], name='snv_id')
 
-            # create a DataArray for the alt counts, total counts, copy number states, and clade index for this SNV type
-            # all DataArrays except for clade_da will have dimensions of snv and leaf
+            # create DataArrays for the alt counts, total counts, copy number states, and clade index for this SNV type
             snv_ids = range(self.alt_counts[i].shape[0])
             alt_counts_da = xr.DataArray(self.alt_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
             total_counts_da = xr.DataArray(self.total_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
@@ -359,16 +358,13 @@ class doubleTimeModel(object):
             cn_state_b_da = xr.DataArray(self.cn_states[i, temp_learned_state_idx, :, 1].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
             clade_da = xr.DataArray(self.clade_index[temp_learned_state_idx], dims=["snv"], coords={"snv": range(len(self.clade_index[temp_learned_state_idx]))})
 
-            # merge the DataArrays into one dataframe, using their shared 'snv' and 'leaf' columns to merge
-            temp_data = temp_data.merge(alt_counts_da.to_dataframe(name='alt_counts').reset_index())
-            temp_data = temp_data.merge(total_counts_da.to_dataframe(name='total_counts').reset_index())
-            temp_data = temp_data.merge(cn_state_a_da.to_dataframe(name='cn_state_a').reset_index())
-            temp_data = temp_data.merge(cn_state_b_da.to_dataframe(name='cn_state_b').reset_index())
-            temp_data = temp_data.merge(clade_da.to_dataframe(name='clade').reset_index())
-            
+            # merge the DataArrays into one DataArray, using their shared 'snv' and 'leaf' coordinates to merge
+            temp_data = xr.merge([temp_data, alt_counts_da.rename('alt_counts'), total_counts_da.rename('total_counts'), 
+                                  cn_state_a_da.rename('cn_state_a'), cn_state_b_da.rename('cn_state_b'), clade_da.rename('clade')])
+
             # convert the copy number states to integers
-            temp_data['cn_state_a'] = temp_data['cn_state_a'].astype(int).astype('category')
-            temp_data['cn_state_b'] = temp_data['cn_state_b'].astype(int).astype('category')
+            temp_data['cn_state_a'] = temp_data['cn_state_a'].astype(int)
+            temp_data['cn_state_b'] = temp_data['cn_state_b'].astype(int)
             # compute the VAF based on the total and alternate read counts
             temp_data['vaf'] = temp_data['alt_counts'] / temp_data['total_counts']
 
@@ -376,18 +372,24 @@ class doubleTimeModel(object):
                 # reindex the snv count based on the highest snv count in the previous SNV type
                 temp_data['snv'] = temp_data['snv'] + data[-1]['snv'].max() + 1
             
-            # add a column for the SNV type
-            temp_data['ascn'] = ascn
+            # add a variable for the SNV type
+            temp_data = temp_data.assign_coords(ascn=ascn)
             
-            if len(temp_data) > 0:
+            if len(temp_data['snv']) > 0:
                 data.append(temp_data)
 
-        data = pd.concat(data, ignore_index=True)
-        parts = data.snv_id.str.split(':', expand = True)
-        data['chromosome'] = parts.iloc[:, 0]
-        data['position'] = parts.iloc[:, 1].astype(int)
+        data = xr.concat(data, dim='snv')
+        parts = xr.DataArray(
+            np.array([snv_id.split(':') for snv_id in data['snv_id'].values]),
+            dims=["snv", "part"]
+        )
+        data = data.assign_coords(chromosome=parts[:, 0], position=parts[:, 1].astype(int))
 
-        assert len(data) == len(parts)
+        assert len(data['snv']) == len(parts)
+
+        # convert the DataArray to a pandas DataFrame
+        # this is necessary as wgs_analysis tools for calculating tri_nucleotide_context require a DataFrame
+        data = data.to_dataframe().reset_index(drop=False)
 
         # only look at tri_nucleotide_context if a reference genome is provided
         if ref_genome is not None:

@@ -133,3 +133,4 @@ dmypy.json
 
 # demo outputs
 demo/output/logs/
+demo/output/
