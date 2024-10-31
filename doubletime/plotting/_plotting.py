@@ -99,18 +99,10 @@ def draw_branch_wgd_fraction(ax, clade, bar_height=0.25):
     bar_height : float
         The height of the bars to draw.
     '''
-    if clade.wgd_timing == 'pre':
-        rect = patches.Rectangle(
-            (clade.branch_start, clade.branch_pos-bar_height/2.), clade.branch_length, bar_height, 
-            linewidth=0, edgecolor='none', facecolor=n_wgd_colors[0])
-        ax.add_patch(rect)
-
-    else:
-        assert clade.wgd_timing == 'post'
-        rect = patches.Rectangle(
-            (clade.branch_start, clade.branch_pos-bar_height/2.), clade.branch_length, bar_height, 
-            linewidth=0, edgecolor='none', facecolor=n_wgd_colors[1])
-        ax.add_patch(rect)
+    rect = patches.Rectangle(
+        (clade.branch_start, clade.branch_pos-bar_height/2.), clade.branch_length, bar_height, 
+        linewidth=0, edgecolor='none', facecolor=n_wgd_colors[clade.n_wgd])
+    ax.add_patch(rect)
 
 
 def draw_branch_wgd_event(ax, clade, bar_height=0.25):
@@ -193,7 +185,7 @@ def draw_leaf_tri_size(ax, clade, scale_cell_fraction=100):
 def plot_clone_tree(tree, branch_lengths, cell_counts, apobec_fraction=None, pre_malignant_interval=None, ax=None, scale_cell_fraction=100):
     '''
     Plot a tree with branch lengths annotated by the number of SNVs and branch colors split by WGD status.
-    Here, SNVs occuring before the WGD event are colored in gray, SNVs occuring after the WGD event are colored in orange.
+    Here, branches occuring before the WGD event are colored in gray, branches occuring after the WGD event are colored in orange.
     If abopec_fraction is not None, the tree branches are colored by the fraction of APOBEC SNVs in each clade instead of WGD status.
     
     Parameters

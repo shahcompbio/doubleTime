@@ -22,23 +22,24 @@ def add_wgd_tree(tree, adata_cn_clusters):
     tree.clade.is_wgd = (adata_cn_clusters.obs['n_wgd'] == 1).all()
 
 
-def count_wgd(clade, n_wgd):
+def count_wgd(clade, n_wgd=0):
     '''
-    Recursively count the number of WGD events in the tree
+    Recursively count the number of WGD events in the tree. For branches that were split into two by a WGD event, 
+    the n_wgd parameter will be `n` before the WGD event and `n+1` after the WGD event.
     
     Parameters
     ----------
     clade : Bio.Phylo.BaseTree.Clade
         Clade to count WGD events for
     n_wgd : int
-        Number of WGD events in the root clade
+        Number of WGD events above the root clade, in most cases this should be 0.
     '''
-    if clade.is_wgd:
-        clade.n_wgd = n_wgd + 1
-    else:
-        clade.n_wgd = n_wgd
+    clade.n_wgd = n_wgd
     for child in clade.clades:
-        count_wgd(child, clade.n_wgd)
+        if clade.is_wgd:
+            count_wgd(child, n_wgd + 1)
+        else:
+            count_wgd(child, n_wgd)
 
 
 def split_wgd_branches(tree):
@@ -64,7 +65,6 @@ def split_wgd_branches(tree):
             )
             post_wgd_clade.is_wgd = False
             post_wgd_clade.wgd_timing = 'post'
-            post_wgd_clade.n_wgd = clade.n_wgd
             clade.clades = [post_wgd_clade]
             clade.wgd_timing = 'pre'
         else:

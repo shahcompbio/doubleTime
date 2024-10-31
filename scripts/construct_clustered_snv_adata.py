@@ -138,11 +138,11 @@ def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_prun
     # Manually add WGD events to the tree
     dt.tl.add_wgd_tree(tree, adata_cn_clusters)
 
-    # Recursively add n_wgd to each clade
-    dt.tl.count_wgd(tree.clade, 0)
-
     # split branches with a WGD event into two branches
     dt.tl.split_wgd_branches(tree)
+
+    # Recursively add n_wgd to each clade
+    dt.tl.count_wgd(tree.clade, 0)
 
     # Wrangle SNV anndata, filter based on cn adatas and merge bin information
     #
