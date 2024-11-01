@@ -14,7 +14,7 @@ patient_id: 'SPECTRUM-OV-025'
 tree_snv_min_clone_size: 20
 tree_snv_min_num_snvs: 20
 tree_snv_min_prop_clonal_wgd: 0.8
-wgd_depth: 1
+wgd_depth: -1
 
 # parameters for running SBMclone
 binarization_threshold: 0.01
