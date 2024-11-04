@@ -1,14 +1,11 @@
-
 import copy
 import itertools
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-import random
 import numpy as np
 import seaborn as sns
 
 n_wgd_colors = ['#CCCCCC', '#FC8D59', '#B30000']
-
 
 def assign_plot_locations(tree):
     """
@@ -392,4 +389,44 @@ def plot_clone_pairwise_vaf(data):
     plot_data = data.set_index(['snv', 'clade', 'leaf'])['vaf'].unstack().reset_index(level=1)
     plot_data['clade'] = plot_data['clade'].astype('category')
     g = sns.pairplot(data=plot_data, hue='clade')
+    return g
+
+
+def plot_snv_hist_facetgrid(data, col, row=None, x='vaf', hue='ascn', bins=20, binrange=(0, 1)):
+    '''
+    Create a FacetGrid of histograms according to the following input parameters. This is most
+    commonly used to plot a histogram of the VAF for each clone.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        A table where each row is a unique SNV with the following columns:
+        - col: the column to facet by
+        - row: the row to facet by
+        - x: the variable to plot
+        - hue: the variable to color by
+    col : str
+        The column to facet by
+    row : str, optional
+        The row to facet by
+    x : str, optional
+        The variable to plot along the x-axis within each histogram. This is typically the VAF.
+    hue : str, optional
+        The variable to color by. This is typically the ASCN.
+    bins : int, optional
+        The number of bins to use in the histogram.
+    binrange : tuple, optional
+        The range of the bins to use in the histogram.
+
+    Returns
+    ----------
+    g : sns.FacetGrid
+        A seaborn FacetGrid object containing the histograms
+    '''
+    if row is None:
+        g = sns.FacetGrid(col=col, data=data, sharey=False, hue=hue)
+    else:
+        g = sns.FacetGrid(col=col, row=row, data=data, sharey=False, hue=hue)
+    g.map_dataframe(sns.histplot, x=x, bins=bins, binrange=binrange)
+    g.add_legend()
     return g
