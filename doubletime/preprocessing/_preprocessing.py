@@ -15,8 +15,8 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
 
     Parameters
     ----------
-    adata : anndata object of shape (n_cells, n_snvs)
-        anndata object with the copy number data after running SBMclone. Rows correspond to cells and columns to SNV positions.
+    adata : anndata object of shape (n_cells, n_bins)
+        anndata object with the copy number data after running SBMclone. Rows correspond to cells and columns to (500kb) binned positions of the genome.
     tree : Bio.Phylo.Tree
         tree object with the clone tree. The leaves of the tree should correspond to the clones in the copy number anndata.
     min_clone_size : int
