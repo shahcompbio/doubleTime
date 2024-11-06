@@ -9,7 +9,7 @@ import itertools
 import warnings
 
 
-def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
+def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8, return_block2leaf=True):
     '''
     Preprocess the copy number anndata object before running the doubleTime model.
 
@@ -21,6 +21,11 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
         tree object with the clone tree. The leaves of the tree should correspond to the clones in the copy number anndata.
     min_clone_size : int
         minimum number of cells per clone for the clone to be included in the analysis.
+    min_prop_clonal_wgd : float
+        Minimum fraction of cells in a clone that contain the median major or minor copy number state. Bins that fall below this threshold
+        are considered to have subclonal CNAs at this clone x position and are therefore removed.
+    return_block2leaf : bool
+        whether to return the block2leaf dictionary that maps blocks to leaves in the clone tree
 
     Returns
     -------
@@ -29,6 +34,8 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
         SNVs are filtered to only include those with compatible copy number states for the doubleTime model.
     tree : Bio.Phylo.Tree
         tree object after removing clones that did not meet the min_clone_size threshold.
+    block2leaf : dict, optional
+        dictionary with the mapping of sbmclone_cluster_id blocks (integers) to clone leaves (strings). This dict is returned if return_block2leaf is True.
     '''
     # Wrangle CN anndata, identify bins with compatible cn, filter clones
     # 
@@ -43,7 +50,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
     block2leaf = {}
     for l in tree.get_terminals():
         for b in l.name.lstrip('clone_').split('/'):
-            block2leaf[int(b)] = l.name.lstrip('clone_') # TODO: why?
+            block2leaf[int(b)] = l.name.lstrip('clone_')
     adata.obs['leaf_id'] = adata.obs.sbmclone_cluster_id.map(block2leaf)
 
     # Select cells with n_wgd<=1 and n_wgd equal to the modal n_wgd
@@ -95,8 +102,8 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, return_block2leaf=True):
     adata_cn_clusters.var['is_homogenous_cn'] = (
         (adata_cn_clusters.var['is_eq_clone_median_Maj'] > 0.9) &
         (adata_cn_clusters.var['is_eq_clone_median_Min'] > 0.9) &
-        (adata_cn_clusters.layers['is_eq_clone_median_Maj'] > 0.8).all(axis=0) &
-        (adata_cn_clusters.layers['is_eq_clone_median_Min'] > 0.8).all(axis=0))
+        (adata_cn_clusters.layers['is_eq_clone_median_Maj'] > min_prop_clonal_wgd).all(axis=0) &
+        (adata_cn_clusters.layers['is_eq_clone_median_Min'] > min_prop_clonal_wgd).all(axis=0))
 
     # Compatible states for WGD1 and WGD0, major/minor for the snv tree model
     compatible_cn_types = {

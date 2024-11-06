@@ -17,7 +17,7 @@ import doubletime as dt
 @click.option('--min_num_snvs', type=int, default=20, required=False) # TODO
 @click.option('--min_prop_clonal_wgd', type=float, default=0.8, required=False)
 @click.option('--wgd_depth', type=int, default=0, required=False)
-def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd, wgd_depth=0.5):
+def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_pruned_tree, min_clone_size, min_num_snvs, min_prop_clonal_wgd=0.8, wgd_depth=0):
     adata = ad.read_h5ad(adata_cna)
     adata.obs['haploid_depth'] = adata.obs['coverage_depth'] / adata.obs['ploidy']
 
@@ -48,7 +48,7 @@ def main(adata_cna, adata_snv, tree_filename, output_cn, output_snv, output_prun
 
     # Aggregate the CN anndata to go from cell x bin to clone x bin, filtering out clones with too few bins
     # and SNVs that are incompatible with the doubleTime model (i.e. incorrect ASCN state or ASCN not homogenous within a clone)
-    adata_cn_clusters, tree, block2leaf = dt.pp.preprocess_cn_adata(adata, tree, min_clone_size=min_clone_size)
+    adata_cn_clusters, tree, block2leaf = dt.pp.preprocess_cn_adata(adata, tree, min_clone_size=min_clone_size, min_prop_clonal_wgd=min_prop_clonal_wgd)
 
     # Manually add WGD events to the tree
     # the wgd_depth parameter controls whether a WGD event is added at the root of the tree
