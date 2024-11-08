@@ -328,8 +328,8 @@ class doubleTimeModel:
                     .to_dataframe(name='cn_state').reset_index())
             
             # merge snv information
-            snv_type_data = snv_type_data.merge(self.total_counts[i].stack().rename('total_count').reset_index())
-            snv_type_data = snv_type_data.merge(self.alt_counts[i].stack().rename('alt_count').reset_index())
+            snv_type_data = snv_type_data.merge(self.total_counts[i].stack().rename('total_counts').reset_index())
+            snv_type_data = snv_type_data.merge(self.alt_counts[i].stack().rename('alt_counts').reset_index())
 
             data.append(snv_type_data)
 
@@ -338,63 +338,58 @@ class doubleTimeModel:
         # merge in snv information
         data = data.merge(self.adata.var[['chromosome', 'position', 'ref', 'alt']].reset_index())
 
+        print('clade value counts', data.clade.value_counts(), sep='\n')
+        print('leaf value counts', data.leaf.value_counts(), sep='\n')
+        print('leaf_id value counts', data.leaf_id.value_counts(), sep='\n')
+        
+        # subset to just the rows where leaf_id equals leaf
+        print('shape before leaf subset:', data.shape)
+        data = data.query('leaf_id == leaf')
+        print('shape after leaf subset:', data.shape)
 
+        # compute the vaf of each SNV using total and alt counts
+        data['vaf'] = data['alt_counts'] / data['total_counts']
 
+        print('data:', data)
+        print('data.columns:', data.columns)
+        print('data.shape', data.shape)
 
-        ### needs to be refactored from here
-        ###
+        print('data.cn_state.value_counts():', data.cn_state.value_counts(), sep='\n')
 
+        # pivot data such that the allele and cn_state columns get combined into cn_state_a and cn_state_b,
+        # leaving one row per SNV
+        # subset to the minimal set of columns we need for the pivot
+        temp_pivot_data = data[['snv_id', 'allele', 'cn_state']].drop_duplicates().reset_index(drop=True)
+        print('temp_pivot_data:', temp_pivot_data)
 
-        # if len(clade_assignment) == 0:
-        #     # create a DataArray with the SNV ids for this SNV type
-        #     temp_data = xr.DataArray(self.snv_ids[i], dims=["snv"], name='snv_id')
+        # print the snv_id values that appear >2 times in temp_pivot_data
+        bad_snv_ids = temp_pivot_data.snv_id.value_counts().loc[lambda x: x > 2]
+        print('snv_id values that appear >2 times:', bad_snv_ids, sep='\n')
 
-        #     # create DataArrays for the alt counts, total counts, copy number states, and clade index for this SNV type
-        #     snv_ids = range(self.alt_counts[i].shape[0])
-        #     alt_counts_da = xr.DataArray(self.alt_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
-        #     total_counts_da = xr.DataArray(self.total_counts[i].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
-        #     cn_state_a_da = xr.DataArray(self.cn_states[i, temp_learned_state_idx, :, 0].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
-        #     cn_state_b_da = xr.DataArray(self.cn_states[i, temp_learned_state_idx, :, 1].detach().numpy(), dims=["snv", "leaf"], coords={"snv": snv_ids, "leaf": self.clone_names})
-        #     clade_da = xr.DataArray(self.clade_index[temp_learned_state_idx], dims=["snv"], coords={"snv": range(len(self.clade_index[temp_learned_state_idx]))})
+        # find the rows in original data that correspond to the bad snv_ids
+        print('SNVs with >2 cn_state values per allele')
+        print(data.query('snv_id in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'leaf_id', 'snv_type']])
 
-        #     # merge the DataArrays into one DataArray, using their shared 'snv' and 'leaf' coordinates to merge
-        #     temp_data = xr.merge([temp_data, alt_counts_da.rename('alt_counts'), total_counts_da.rename('total_counts'), 
-        #                           cn_state_a_da.rename('cn_state_a'), cn_state_b_da.rename('cn_state_b'), clade_da.rename('clade')])
+        print('SNVs with 2 cn_state values per allele')
+        print(data.query('snv_id not in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'leaf_id', 'snv_type']])
 
-        #     # convert the copy number states to integers
-        #     temp_data['cn_state_a'] = temp_data['cn_state_a'].astype(int)
-        #     temp_data['cn_state_b'] = temp_data['cn_state_b'].astype(int)
-        #     # compute the VAF based on the total and alternate read counts
-        #     temp_data['vaf'] = temp_data['alt_counts'] / temp_data['total_counts']
+        assert len(bad_snv_ids) == 0, 'There are SNVs with multiple cn_state values per allele'
 
-        #     if data != []:
-        #         # reindex the snv count based on the highest snv count in the previous SNV type
-        #         temp_data['snv'] = temp_data['snv'] + data[-1]['snv'].max() + 1
-            
-        #     # add a variable for the SNV type
-        #     temp_data = temp_data.assign_coords(ascn=ascn)
-            
-        #     if len(temp_data['snv']) > 0:
-        #         data.append(temp_data)
+        # perform the pivot to cut the number of rows in half
+        temp_pivot_data = temp_pivot_data.pivot_table(index='snv_id', columns='allele', values='cn_state').reset_index()
+        # rename the 'a' and 'b' columns to cn_state_a and cn_state_b
+        temp_pivot_data = temp_pivot_data.rename(columns={'a': 'cn_state_a', 'b': 'cn_state_b'})
+        # drop the 'cn_state' and 'allele' columns from data
+        data = data.drop(columns=['cn_state', 'allele']).drop_duplicates().reset_index(drop=True)
+        # merge temp_pivot_data back into data
+        data = data.merge(temp_pivot_data, on='snv_id')
 
-        # data = xr.concat(data, dim='snv')
-        # parts = xr.DataArray(
-        #     np.array([snv_id.split(':') for snv_id in data['snv_id'].values]),
-        #     dims=["snv", "part"]
-        # )
-        # data = data.assign_coords(chromosome=parts[:, 0], position=parts[:, 1].astype(int))
-
-        # assert len(data['snv']) == len(parts)
-
-        # convert the DataArray to a pandas DataFrame
-        # this is necessary as wgs_analysis tools for calculating tri_nucleotide_context require a DataFrame
-        data = data.to_dataframe().reset_index(drop=False)
+        print('data.cn_state_a.value_counts():', data.cn_state_a.value_counts(), sep='\n')
+        print('data.cn_state_b.value_counts():', data.cn_state_b.value_counts(), sep='\n')
 
         # only look at tri_nucleotide_context if a reference genome is provided
         if ref_genome is not None:
             # look at APOBEC on the tree
-            data['ref'] = data.snv_id.str.split(':', expand=True).iloc[:, 2].str.split('>', expand=True).iloc[:, 0]
-            data['alt'] = data.snv_id.str.split(':', expand=True).iloc[:, 2].str.split('>', expand=True).iloc[:, 1]
             data['chrom'] = data['chromosome']
             data['coord'] = data['position']
             wgs_analysis.snvs.mutsig.calculate_tri_nucleotide_context(data, ref_genome)
@@ -404,7 +399,7 @@ class doubleTimeModel:
 
             data['is_cpg2'] = [dt.tl.is_c_to_t_in_cpg_context(r.ref, r.alt, r.tri_nucleotide_context) for _, r in data.iterrows()]
             assert data.is_cpg2.equals(data.is_cpg)
-            data = data.drop(columns=['is_cpg2'])
+            data = data.drop(columns=['is_cpg2', 'chrom', 'coord'])
         
         # check if any SNVs are assigned to multiple clades
         multi_assigned = [sdf for x, sdf in data.groupby('snv_id') if len(sdf.clade.unique()) > 1]

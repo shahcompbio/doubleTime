@@ -205,11 +205,11 @@ def compute_clade_apobec_fraction(data):
     Parameters
     ----------
     data : pd.DataFrame
-        A dataframe with columns 'snv', 'clade', and 'is_apobec'.
+        A dataframe with columns 'snv_id', 'clade', and 'is_apobec'.
 
     Returns
     -------
     pd.Series
         A series with the fraction of APOBEC-induced mutations in each clade.
     """
-    return data[['snv', 'clade', 'is_apobec']].drop_duplicates().groupby(['clade'])['is_apobec'].mean()
+    return data[['snv_id', 'clade', 'is_apobec']].drop_duplicates().groupby(['clade'])['is_apobec'].mean()

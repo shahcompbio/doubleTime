@@ -45,11 +45,11 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
 
     # plot the SNV multiplicity
     # VAF for each SNV multiplicity
-    g = dt.pl.plot_snv_hist_facetgrid(data, col='cn_state_a', row=None, x='vaf', hue='ascn')
+    g = dt.pl.plot_snv_hist_facetgrid(data, col='cn_state_a', row=None, x='vaf', hue='snv_type')
     g.savefig(snv_multiplicity_filename, bbox_inches='tight')
 
     # VAF for each clade (row) and each clone (column)
-    g = dt.pl.plot_snv_hist_facetgrid(data, col='leaf', row='clade', x='vaf', hue='ascn')
+    g = dt.pl.plot_snv_hist_facetgrid(data, col='leaf', row='clade', x='vaf', hue='snv_type')
     output_filename = snv_multiplicity_filename.replace('.pdf', '_by_clone.pdf')
     g.savefig(output_filename, bbox_inches='tight')
 
@@ -57,13 +57,13 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     zero_state_data = data.query('cn_state_a == 0 & cn_state_b == 0')
     # VAF for the zero state
     if len(zero_state_data) > 0:
-        g = dt.pl.plot_snv_hist_facetgrid(zero_state_data, col='leaf', row=None, x='vaf', hue='ascn')
+        g = dt.pl.plot_snv_hist_facetgrid(zero_state_data, col='leaf', row=None, x='vaf', hue='snv_type')
         output_filename = snv_multiplicity_filename.replace('.pdf', '_zero_state.pdf')
         g.savefig(output_filename, bbox_inches='tight')
     
     # Pairwise VAF for pairs of clones for the zero state only
     if len(zero_state_data) > 0:
-        plot_data = zero_state_data.set_index(['snv', 'clade', 'leaf'])['vaf'].unstack().reset_index(level=1)
+        plot_data = zero_state_data.set_index(['snv_id', 'clade', 'leaf'])['vaf'].unstack().reset_index(level=1)
         plot_data['clade'] = plot_data['clade'].astype('category')
         g = sns.pairplot(data=plot_data, hue='clade')
         output_filename = snv_multiplicity_filename.replace('.pdf', '_zero_state_by_clone.pdf')
@@ -87,7 +87,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     adata = adata[clones].copy()
 
     # find the SNV types included in the tree
-    snv_types = sorted(data.ascn.unique())
+    snv_types = sorted(data.snv_type.unique())
 
     ## Plot the tree with the branch lengths annotated by the number of SNVs
     ## and WGD events represented by color

@@ -375,7 +375,7 @@ def plot_clone_pairwise_vaf(data):
     ----------
     data : pd.DataFrame
         A table with the following columns:
-        - snv: the SNV ID
+        - snv_id: the SNV ID
         - clade: the clade (branch) name that the SNV belongs to
         - leaf: the clone name
         - vaf: the variant allele frequency
@@ -386,13 +386,13 @@ def plot_clone_pairwise_vaf(data):
         A seaborn PairGrid object containing the pairwise VAF plots
     '''
     # Pairwise VAF by clade/branch for clone pairs
-    plot_data = data.set_index(['snv', 'clade', 'leaf'])['vaf'].unstack().reset_index(level=1)
+    plot_data = data.set_index(['snv_id', 'clade', 'leaf'])['vaf'].unstack().reset_index(level=1)
     plot_data['clade'] = plot_data['clade'].astype('category')
     g = sns.pairplot(data=plot_data, hue='clade')
     return g
 
 
-def plot_snv_hist_facetgrid(data, col, row=None, x='vaf', hue='ascn', bins=20, binrange=(0, 1)):
+def plot_snv_hist_facetgrid(data, col, row=None, x='vaf', hue='snv_type', bins=20, binrange=(0, 1)):
     '''
     Create a FacetGrid of histograms according to the following input parameters. This is most
     commonly used to plot a histogram of the VAF for each clone.
@@ -412,7 +412,7 @@ def plot_snv_hist_facetgrid(data, col, row=None, x='vaf', hue='ascn', bins=20, b
     x : str, optional
         The variable to plot along the x-axis within each histogram. This is typically the VAF.
     hue : str, optional
-        The variable to color by. This is typically the ASCN.
+        The variable to color by. This is typically the snv_type ASCN.
     bins : int, optional
         The number of bins to use in the histogram.
     binrange : tuple, optional
