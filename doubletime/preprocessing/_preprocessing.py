@@ -50,7 +50,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
     block2leaf = {}
     for l in tree.get_terminals():
         for b in l.name.lstrip('clone_').split('/'):
-            block2leaf[int(b)] = l.name.lstrip('clone_')
+            block2leaf[int(b)] = l.name
     adata.obs['leaf_id'] = adata.obs.sbmclone_cluster_id.map(block2leaf)
 
     # Select cells with n_wgd<=1 and n_wgd equal to the modal n_wgd
@@ -128,7 +128,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
     
     # Prune clones from the tree if they were removed due to size
     remaining_leaves = adata_cn_clusters.obs.index
-    tree = scgenome.tl.prune_leaves(tree, lambda a: a.name.lstrip('clone_') not in remaining_leaves)
+    tree = scgenome.tl.prune_leaves(tree, lambda a: a.name not in remaining_leaves)
     # Merge branches
     def merge_branches(parent, child):
         return {
@@ -268,11 +268,12 @@ def split_wgd_branches(tree):
         if clade.is_wgd:
             post_wgd_clade = Bio.Phylo.BaseTree.Clade(
                 branch_length=1.,
-                name='postwgd_' + clade.name,
+                name=clade.name,
                 clades=clade.clades,
             )
             post_wgd_clade.is_wgd = False
             post_wgd_clade.wgd_timing = 'post'
+            clade.name = f'prewgd_{clade.name}'
             clade.clades = [post_wgd_clade]
             clade.wgd_timing = 'pre'
         else:

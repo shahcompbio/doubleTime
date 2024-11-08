@@ -23,7 +23,7 @@ def seed_everything(seed=42):
     pyro.set_rng_seed(seed)
 
 
-class doubleTimeModel(object):
+class doubleTimeModel:
 
     def __init__(self, adata, tree, snv_types=['1:0', '1:1', '2:0', '2:1', '2:2'], min_total_counts_perblock=2, seed=0, lr=0.1, betas=[0.8, 0.99]):
         '''
@@ -235,16 +235,28 @@ class doubleTimeModel(object):
         # restrict anndata to clones represented in the tree
         clones = []
         for leaf in self.tree.get_terminals():
-            clones.append(leaf.name.replace('clone_', '').replace('postwgd_', ''))
+            clones.append(leaf.name)
         self.adata = self.adata[clones].copy()
 
-        # Fixed order for clone names
+        # Fixed order for clade names
         clade_names = [clade.name for clade in self.tree.find_clades()]
-        # set clone name to postwgd_clone_{a} if we had to split a terminal branch into two due to a WGD event, otherwise set it to clone_{a}
-        clone_names = [f'postwgd_clone_{a}' if f'postwgd_clone_{a}' in clade_names else f'clone_{a}' for a in self.adata.obs.index]
+
+        # Fixed order of clone names
+        clone_names = self.adata.obs.index.values
+
+        # build the copy number states table for each snv type
+        cn_states = []
+        for ascn in self.snv_types:
+            cnA = int(ascn.split(':')[0])
+            cnB = int(ascn.split(':')[1])
+            cn_states.append(dt.tl.build_cn_states_df(self.tree, cnA, cnB))
+        cn_states = xr.concat(cn_states, dim=pd.Index(self.snv_types, name='snv_type'))
+        cn_states = cn_states.transpose('snv_type', 'clade', 'leaf', 'allele')
 
         # Fixed order for Leaf ids
-        leaf_ids = self.adata.obs.index
+        leaf_ids = cn_states.leaf.values
+
+        states = cn_states.clade.values
 
         # prepare input to model
         cn_states_list = []
@@ -256,20 +268,10 @@ class doubleTimeModel(object):
         for ascn in self.snv_types:
             cnA = int(ascn.split(':')[0])
             cnB = int(ascn.split(':')[1])
+
             # build the copy number states DataFrame for the current SNV type
-            temp_cn_states_df_a, temp_cn_states_df_b = dt.tl.build_cn_states_df(self.tree, cnA, cnB)
+            temp_cn_states = dt.tl.build_cn_states_df(self.tree, cnA, cnB)
 
-            # Ensure correct ordering of clones
-            temp_cn_states_df_a = temp_cn_states_df_a[clone_names]
-            temp_cn_states_df_b = temp_cn_states_df_b[clone_names]
-
-            # convert the DataFrames to DataArrays
-            # the DataArray will have dimensions of tree position (state), clone, and allele
-            temp_cn_states = xr.DataArray(
-                np.stack([temp_cn_states_df_a.values, temp_cn_states_df_b.values], axis=2),
-                dims=["state", "clone", "allele"],
-                coords={"state": temp_cn_states_df_a.index.values, "clone": leaf_ids.values, "allele": ["a", "b"]}
-            )
             # append the DataArray to the list
             # no need to convert to a tensor yet since the list of DataArrays will be converted to a tensor later
             cn_states_list.append(temp_cn_states)
@@ -283,17 +285,17 @@ class doubleTimeModel(object):
             temp_total_counts = xr.DataArray(
                 np.array(temp_adata.layers['total_count']).T,
                 dims=["snv_id", "clone"],
-                coords={"snv_id": temp_snv_ids, "clone": leaf_ids.values}
+                coords={"snv_id": temp_snv_ids, "clone": leaf_ids}
             )
             temp_alt_counts = xr.DataArray(
                 np.array(temp_adata.layers['alt_count']).T,
                 dims=["snv_id", "clone"],
-                coords={"snv_id": temp_snv_ids, "clone": leaf_ids.values}
+                coords={"snv_id": temp_snv_ids, "clone": leaf_ids}
             )
             temp_total_cn = xr.DataArray(
                 np.array(temp_adata.layers['Maj']).T + np.array(temp_adata.layers['Min']).T,
                 dims=["snv_id", "clone"],
-                coords={"snv_id": temp_snv_ids, "clone": leaf_ids.values}
+                coords={"snv_id": temp_snv_ids, "clone": leaf_ids}
             )
 
             # we convert these DataArrays to tensors before appending to the list since they cannot be stacked along the snv_id dimension,
@@ -304,16 +306,14 @@ class doubleTimeModel(object):
             snv_ids_list.append(temp_snv_ids)
 
         # stack the list of cn states DataArrays (one for each SNV type) into a single DataArray and convert to a tensor
-        cn_states = torch.tensor(xr.concat(cn_states_list, dim="snv_type").values, dtype=torch.float32)
+        cn_states = torch.tensor(cn_states.values, dtype=torch.float32)
 
         # Ensure there is at least one snv
         n_snvs = sum(a.shape[0] for a in total_counts_list)
         if n_snvs == 0:
             raise ValueError(f"No clonal SNVs found in allowed CN states ({self.snv_types}).")
         
-        clade_index = temp_cn_states_df_a.index.get_level_values('clade')
-
-        return total_cn_list, total_counts_list, alt_counts_list, cn_states, snv_ids_list, clone_names, clade_index
+        return total_cn_list, total_counts_list, alt_counts_list, cn_states, snv_ids_list, clone_names, states
 
     def format_model_output(self, ref_genome=None):
         '''

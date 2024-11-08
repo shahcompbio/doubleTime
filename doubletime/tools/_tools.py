@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import xarray as xr
 
 
 def build_cn_states_df(tree, cnA, cnB):
@@ -55,7 +56,12 @@ def build_cn_states_df(tree, cnA, cnB):
     cn_states_dfa = pd.DataFrame(cn_states_df).set_index(['clade', 'leaf'])['cn_a'].unstack(fill_value=0)
     cn_states_dfb = pd.DataFrame(cn_states_df).set_index(['clade', 'leaf'])['cn_b'].unstack(fill_value=0)
 
-    return cn_states_dfa, cn_states_dfb
+    cn_states = xr.concat([
+        xr.DataArray(cn_states_dfa),
+        xr.DataArray(cn_states_dfb)],
+        dim=pd.Index(['a', 'b'], name='allele'))
+
+    return cn_states
 
 
 def is_cpg_snv(data):
@@ -150,43 +156,6 @@ def is_c_to_t_in_cpg_context(ref_base, alt_base, trinucleotide_context):
     return False
 
 
-def compute_clone_cell_counts(adata, tree):
-    '''
-    Find the number of cells assigned to each clone. If a clone is split into pre- and post-WGD clades, 
-    the number of cells is assigned to the terminal post-WGD clade. This function is necessary prior to
-    calling dt.pl.plot_clone_tree() and/or Bio.Phylo.draw(tree). 
-
-    Parameters
-    ----------
-    adata : anndata.AnnData
-        Annotated data matrix containing the filtered doubleTree output.
-    tree : Bio.Phylo.BaseTree.Tree
-        Phylogenetic tree with branch lengths annotated by SNV counts.
-
-    Returns
-    -------
-    cell_counts : pd.Series
-        Number of cells assigned to each clone (i.e. terminal clade). Input for dt.pl.plot_clone_tree().
-    '''
-    # get all of the clade names in the tree that contain the keyword 'clone'
-    # importantly, this includes the post-WGD clades for WGD branches split into pre- and post-WGD clades
-    clone_names = [clade.name for clade in tree.find_clades() if 'clone' in clade.name]
-
-    # find the number of cells assigned to each clone from doubleTree output
-    cell_counts = adata.obs['cluster_size'].copy()
-
-    # rename the index of cell_counts so that they match the clade names in the tree
-    new_index = []
-    for a in cell_counts.index:
-        # find the elements of clone_names that end with the integer a
-        # this should append `postwgd_clone_{a}`` if there is a postwgd clade, otherwise `clone_{a}`
-        matching_clades = sorted([c for c in clone_names if c.endswith(str(a))])[::-1]
-        new_index.append(matching_clades[0])
-    cell_counts.index = new_index
-
-    return cell_counts
-
-
 def compute_branch_lengths(data, tree, cell_counts, CpG=False):
     '''
     Compute the branch lengths of the tree based on the number of SNVs in each clade. Branch lengths
@@ -200,7 +169,7 @@ def compute_branch_lengths(data, tree, cell_counts, CpG=False):
     tree : Bio.Phylo.BaseTree.Tree
         Phylogenetic tree with branch lengths annotated by SNV counts.
     cell_counts : pd.Series
-        Number of cells assigned to each clone (i.e. terminal clade). Output of dt.tl.compute_clone_cell_counts().
+        Number of cells assigned to each clone (i.e. terminal clade).
     CpG : bool
         If True, compute branch lengths based on CpG SNVs only. Otherwise, use all SNVs.
         

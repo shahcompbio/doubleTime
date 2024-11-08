@@ -71,7 +71,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
 
     # check that the adata object is not empty
     if np.min(adata.shape) == 0 or len(data) == 0:
-        sys.exit(0)
+        raise Exception('Empty adata object')
 
     # plot the SNV reads histogram
     fig, ax = dt.pl.plot_snv_reads_hist(adata)
@@ -83,7 +83,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     # filter adata based on tree
     clones = []
     for leaf in tree.get_terminals():
-        clones.append(leaf.name.replace('clone_', '').replace('postwgd_', ''))
+        clones.append(leaf.name)
     adata = adata[clones].copy()
 
     # find the SNV types included in the tree
@@ -92,7 +92,7 @@ def main(tree_filename, adata_filename, table_filename, patient_id,
     ## Plot the tree with the branch lengths annotated by the number of SNVs
     ## and WGD events represented by color
     # compute the number of cells assigned to each clone
-    cell_counts = dt.tl.compute_clone_cell_counts(adata, tree)
+    cell_counts = adata.obs['cluster_size'].copy()
     # compute the branch lengths of each clade
     branch_lengths = dt.tl.compute_branch_lengths(data, tree, cell_counts)
 
