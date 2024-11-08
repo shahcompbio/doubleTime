@@ -51,7 +51,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
     for l in tree.get_terminals():
         for b in l.name.lstrip('clone_').split('/'):
             block2leaf[int(b)] = l.name
-    adata.obs['leaf_id'] = adata.obs.sbmclone_cluster_id.map(block2leaf)
+    adata.obs['leaf'] = adata.obs.sbmclone_cluster_id.map(block2leaf)
 
     # Select cells with n_wgd<=1 and n_wgd equal to the modal n_wgd
     adata = adata[(
@@ -59,7 +59,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
         adata.obs.n_wgd == adata.obs.n_wgd_mode)].copy()
 
     # Threshold on size of clone
-    adata.obs['leaf_size'] = adata.obs.groupby('leaf_id').transform('size')
+    adata.obs['leaf_size'] = adata.obs.groupby('leaf').transform('size')
     adata = adata[adata.obs['leaf_size'] >= min_clone_size]
 
     # Aggregate the copy number based on the leaf id
@@ -70,12 +70,12 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
             'Min': 'median',
             'state': 'median',
         },
-        cluster_col='leaf_id')
+        cluster_col='leaf')
     adata_cn_clusters.obs.index = adata_cn_clusters.obs.index.astype(str)
 
     # Add per clone statistics for the frequency of the median state
     for layer in ['state', 'Maj', 'Min']:
-        adata.layers[f'clone_median_{layer}'] = adata_cn_clusters.to_df(layer).loc[adata.obs['leaf_id'].values, :]
+        adata.layers[f'clone_median_{layer}'] = adata_cn_clusters.to_df(layer).loc[adata.obs['leaf'].values, :]
         adata.layers[f'is_eq_clone_median_{layer}'] = adata.layers[layer] == adata.layers[f'clone_median_{layer}']
         adata.var[f'is_eq_clone_median_{layer}'] = np.nanmean(adata.layers[f'is_eq_clone_median_{layer}'], axis=0)
 
@@ -94,7 +94,7 @@ def preprocess_cn_adata(adata, tree, min_clone_size=10, min_prop_clonal_wgd=0.8,
             'n_wgd': 'median',
             'haploid_depth': 'sum',
         },
-        cluster_col='leaf_id')
+        cluster_col='leaf')
     adata_cn_clusters.obs.index = adata_cn_clusters.obs.index.astype(str)
     adata_cn_clusters.obs['n_wgd'] = adata_cn_clusters.obs['n_wgd'].round()
 
@@ -164,7 +164,7 @@ def preprocess_snv_adata(snv_adata, adata_cn_clusters, block2leaf):
         anndata object with the SNV data aggregated by clone. Rows correspond to clones and columns to SNV positions.
     '''
     # Aggregate snv counts
-    snv_adata.obs['leaf_id'] = snv_adata.obs.sbmclone_cluster_id.map(block2leaf)
+    snv_adata.obs['leaf'] = snv_adata.obs.sbmclone_cluster_id.map(block2leaf)
     adata_clusters = scgenome.tl.aggregate_clusters(
         snv_adata,
         agg_layers={
@@ -174,7 +174,7 @@ def preprocess_snv_adata(snv_adata, adata_cn_clusters, block2leaf):
             'Min': 'median',
             'state': 'median',
         },
-        cluster_col='leaf_id')
+        cluster_col='leaf')
 
     # Filter snv cluster data similar to copy number
     adata_clusters = adata_clusters[adata_cn_clusters.obs.index].copy()

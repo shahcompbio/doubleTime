@@ -328,8 +328,8 @@ class doubleTimeModel:
                     .to_dataframe(name='cn_state').reset_index())
             
             # merge snv information
-            snv_type_data = snv_type_data.merge(self.total_counts[i].stack().rename('total_counts').reset_index())
-            snv_type_data = snv_type_data.merge(self.alt_counts[i].stack().rename('alt_counts').reset_index())
+            snv_type_data = snv_type_data.merge(self.total_counts[i].stack().rename('total_count').reset_index(), on=['snv_id', 'leaf'])
+            snv_type_data = snv_type_data.merge(self.alt_counts[i].stack().rename('alt_count').reset_index(), on=['snv_id', 'leaf'])
 
             data.append(snv_type_data)
 
@@ -340,12 +340,7 @@ class doubleTimeModel:
 
         print('clade value counts', data.clade.value_counts(), sep='\n')
         print('leaf value counts', data.leaf.value_counts(), sep='\n')
-        print('leaf_id value counts', data.leaf_id.value_counts(), sep='\n')
         
-        # subset to just the rows where leaf_id equals leaf
-        print('shape before leaf subset:', data.shape)
-        data = data.query('leaf_id == leaf')
-        print('shape after leaf subset:', data.shape)
 
         # compute the vaf of each SNV using total and alt counts
         data['vaf'] = data['alt_counts'] / data['total_counts']
@@ -368,10 +363,10 @@ class doubleTimeModel:
 
         # find the rows in original data that correspond to the bad snv_ids
         print('SNVs with >2 cn_state values per allele')
-        print(data.query('snv_id in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'leaf_id', 'snv_type']])
+        print(data.query('snv_id in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'snv_type']])
 
         print('SNVs with 2 cn_state values per allele')
-        print(data.query('snv_id not in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'leaf_id', 'snv_type']])
+        print(data.query('snv_id not in @bad_snv_ids.index')[['snv_id', 'allele', 'cn_state', 'clade', 'leaf', 'snv_type']])
 
         assert len(bad_snv_ids) == 0, 'There are SNVs with multiple cn_state values per allele'
 
