@@ -131,6 +131,13 @@ dmypy.json
 # snakemake workflow
 .snakemake/
 
-# demo outputs
+# demo logs
 demo/output/logs/
-demo/output/
+
+# demos that aren't 002
+demo/input/SPECTRUM-OV-025*
+demo/output/SPECTRUM-OV-025*
+demo/output/plots/SPECTRUM-OV-025*
+demo/input/SPECTRUM-OV-044*
+demo/output/SPECTRUM-OV-044*
+demo/output/plots/SPECTRUM-OV-044*
